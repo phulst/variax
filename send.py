@@ -8,6 +8,7 @@ Usage:
                                        # because a model change re-applies the tone knob
   uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by name
   uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
+  uv run send.py 12string              # 12-string sound (Parallel Pitch); "12string off" to stop
   uv run send.py "C0 2C"               # a raw MIDI message, as hex bytes
   uv run send.py spank 1 tuning dadgad # several, in order
   uv run send.py --wait 5 lester 5     # listen 5 s after each message (default 2)
@@ -69,6 +70,12 @@ def parse_messages(tokens):
             del tokens[:6]
             messages.append(jtv.set_strings_message(offsets))
             continue
+        if token.lower().replace("-", "") in ("12string", "twelvestring"):
+            on = True
+            if tokens and tokens[0].lower() in ("on", "off"):
+                on = tokens.pop(0).lower() == "on"
+            messages.extend(jtv.twelve_string_messages(on))
+            continue
         if token.lower() == "tuning":
             if not tokens:
                 raise ValueError("tuning needs a name, e.g. \"tuning drop-d\"")
@@ -77,7 +84,7 @@ def parse_messages(tokens):
         try:
             messages.append(bytes.fromhex(token))
         except ValueError:
-            raise ValueError("%r is not a model bank name, volume, tone, strings, tuning or hex bytes" % token)
+            raise ValueError("%r is not a model bank name, volume, tone, strings, tuning, 12string or hex bytes" % token)
     return messages
 
 
@@ -106,7 +113,8 @@ def main():
     parser = argparse.ArgumentParser(description="Send MIDI messages to the Variax.")
     parser.add_argument("messages", nargs="+",
                         help='a model ("lester 5"), "volume N", "tone N", "tuning NAME", '
-                             '"strings E A D G B E" offsets, or hex bytes of one MIDI message ("C0 2C")')
+                             '"strings E A D G B E" offsets, "12string [on|off]", '
+                             'or hex bytes of one MIDI message ("C0 2C")')
     parser.add_argument("--wait", type=float, default=2.0, help="seconds to listen after each message")
     args = parser.parse_args()
 

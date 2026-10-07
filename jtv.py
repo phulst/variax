@@ -105,11 +105,48 @@ TUNINGS = [
 
 # Messages Workbench HD uses (captured with USBPcap). Data comes as 4-bit
 # nibbles; a 24-bit word takes 6 nibbles, least significant nibble first.
-# A pitch offset is a signed 24-bit word where 2**23 is one octave.
+# Command 43 writes words into the guitar's current model:
+#   F0 00 01 0C 07 05 43 <word count> <word address> <words...> F7
+# and the guitar answers with ACK.
 WORKBENCH_SYSEX = bytes.fromhex("F0 00 01 0C 07 05")
-SET_STRINGS_HEADER = WORKBENCH_SYSEX + bytes.fromhex("43 06 00 00 00 00 00 0C 01 04 00 00 00")
+WRITE = 0x43
 READ_TUNING = 0x1B  # F0 00 01 0C 07 05 1B <slot 1-11> F7 -> six offsets + 18-character name
-ACK = 0x71          # F0 00 01 0C 07 05 71 F7, the guitar's reply to SET_STRINGS
+ACK = 0x71          # F0 00 01 0C 07 05 71 F7, the guitar's reply to WRITE
+
+# Word addresses (per string: high E string first).
+STRINGS_ADDRESS = 0x41C         # six pitch offsets, signed, 2**23 = one octave
+TUNING_ENABLE_ADDRESS = 0x422   # Workbench's Tuning on/off button: 0 or 1
+FLAGS_ADDRESS = 0x001           # on/off flags; Parallel Pitch is bits 0x080010
+PARALLEL_PITCH_ADDRESS = 0x2AE  # 78 words of Parallel Pitch settings
+ADDRESS_NAMES = {
+    STRINGS_ADDRESS: "string tuning",
+    TUNING_ENABLE_ADDRESS: "tuning on/off",
+    FLAGS_ADDRESS: "flags",
+    PARALLEL_PITCH_ADDRESS: "parallel pitch settings",
+}
+
+# Parallel Pitch as Workbench sends it for a 12-string: pitch +12 +12 +12 +12 0 0
+# and cents -5 -5 -5 -7 -3 -4 (low E first), mix 30% on every string. Captured
+# verbatim; Workbench turns pitch and cents into what look like per-string filter
+# coefficients, so only this exact setting can be replayed. Layout: 6 words
+# per string, 60 words (10 per string), 6 dry levels (0.7), 6 wet levels (0.3).
+TWELVE_STRING_SETTINGS = [
+    0x000174, 0x000174, 0x000174, 0x000151, 0x000151, 0x00014F,
+    0x1E2332, 0xC1BC7F, 0x2036A7, 0x1E59D9, 0xC1BC7F, 0x000000,
+    0xF621FB, 0x0FFCA7, 0x000000, 0xE61EA2, 0x1F7E8D, 0xC0780E,
+    0x201622, 0x1F94AF, 0xC0780E, 0x000000, 0xF40FF7, 0x0F31F0,
+    0x000000, 0xE341E7, 0x1B785D, 0xC659FE, 0x1E7EAD, 0x19F70A,
+    0xC659FE, 0x000000, 0xF38474, 0x113829, 0x000000, 0xE4BC9D,
+    0x1B3300, 0xC7D248, 0x1EA7B8, 0x19DAB9, 0xC7D248, 0x16095A,
+    0xCD3375, 0x234F87, 0x1958E0, 0xCD3375, 0x1B2B88, 0xC72CC9,
+    0x1DEBB1, 0x19173A, 0xC72CC9, 0x199D54, 0xC6C001, 0x221F2B,
+    0x1BBC7E, 0xC6C001, 0x1D725E, 0xC37F67, 0x1F26D0, 0x1C992D,
+    0xC37F67, 0x1AA7EC, 0xC44579, 0x224CF7, 0x1CF4E3, 0xC44579,
+    0x599999, 0x599999, 0x599999, 0x599999, 0x599999, 0x599999,
+    0x266666, 0x266666, 0x266666, 0x266666, 0x266666, 0x266666,
+]
+FLAGS_PARALLEL_PITCH_ON = 0x090BFF
+FLAGS_PARALLEL_PITCH_OFF = 0x010BEF
 
 
 def encode24(value):
@@ -122,16 +159,42 @@ def decode24(nibbles):
     return value - (1 << 24) if value & 0x800000 else value
 
 
+def write_message(address, words):
+    """SysEx that writes 24-bit words to the current model, starting at a word address."""
+    data = b"".join(encode24(w) for w in words)
+    return WORKBENCH_SYSEX + bytes([WRITE]) + encode24(len(words)) + encode24(address) + data + b"\xF7"
+
+
+def parse_write(msg):
+    """Decode a WRITE message into (address, words), or None."""
+    if not msg.startswith(WORKBENCH_SYSEX) or len(msg) < 8 + 18 or msg[6] != WRITE:
+        return None
+    body = msg[7:-1]
+    words = [decode24(body[i:i + 6]) for i in range(0, len(body) - 5, 6)]
+    count, address, data = words[0], words[1], words[2:]
+    if count != len(data):
+        return None
+    return address, data
+
+
 def set_strings_message(offsets):
     """SysEx that sets the current model's per-string pitch offsets.
 
     offsets: six semitone offsets from standard tuning, low E string first
     (as tunings are written in the Pilot's Guide). Fractions are allowed.
+    The guitar plays them when the tuning knob is on MODEL.
     """
     if len(offsets) != 6:
         raise ValueError("need six string offsets")
-    data = b"".join(encode24(round(semitones * (1 << 23) / 12)) for semitones in reversed(offsets))
-    return SET_STRINGS_HEADER + data + b"\xF7"
+    return write_message(STRINGS_ADDRESS, [round(s * (1 << 23) / 12) for s in reversed(offsets)])
+
+
+def twelve_string_messages(on=True):
+    """Messages that turn the 12-string Parallel Pitch on (settings, then flag) or off."""
+    if not on:
+        return [write_message(FLAGS_ADDRESS, [FLAGS_PARALLEL_PITCH_OFF])]
+    return [write_message(PARALLEL_PITCH_ADDRESS, TWELVE_STRING_SETTINGS),
+            write_message(FLAGS_ADDRESS, [FLAGS_PARALLEL_PITCH_ON])]
 
 
 def parse_tuning_reply(msg):

@@ -36,6 +36,7 @@ uv run send.py volume 100            # volume 0-127 (CC7)
 uv run send.py spank 1 tone 64       # tone 0-127 (CC79), after the model change
 uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by name
 uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
+uv run send.py 12string              # 12-string sound; "12string off" to stop
 uv run send.py spank 1 "B0 07 50"    # several in order
 ```
 
@@ -155,6 +156,26 @@ the guitar as `F0 00 01 0C 07 05` (the guitar's own address; we send `07 00`).
 - A 24-bit value is sent as six 4-bit nibbles, least significant first. A
   pitch offset is signed with 2²³ = one octave, so one semitone is 2²³/12.
   Names use the same 3-bytes-in-6-nibbles packing as the model data.
+
+**Command 43 is a generic write** (from a second capture, toggling Tuning
+and Parallel Pitch in Workbench):
+`F0 00 01 0C 07 05 43 <word count> <word address> <words> F7`, each of the
+two header fields a 24-bit word like the data. Addresses seen so far (words;
+per-string values high E first):
+
+| Address | Words | Contents |
+|---|---|---|
+| `0x001` | 1 | flags; Parallel Pitch on = `0x090BFF`, off = `0x010BEF` (bits `0x080010`) |
+| `0x2AE` | 78 | Parallel Pitch: 6 small values per string, 60 values (10 per string) that look like filter coefficients, 6 dry levels (0.7), 6 wet levels (0.3 = mix 30%) |
+| `0x41C` | 6 | string tuning offsets |
+| `0x422` | 1 | Tuning on/off (Workbench's power button), 0 or 1 |
+
+Workbench sends the 78 Parallel Pitch words, then the flag, to turn it on, and
+only the flag to turn it off. The Parallel Pitch pitch (+12 +12 +12 +12 0 0)
+and cents (−5 −5 −5 −7 −3 −4) settings don't appear as plain numbers; Workbench
+seems to compute the filter-like values from them. So `send.py 12string`
+replays this one captured setting verbatim. The flags word also holds other
+bits, captured on one model; writing it may reset other on/off settings.
 
 The `5E` tuning on/off SysEx from a Helix thread (for the Variax Acoustic 700)
 does nothing on the JTV.

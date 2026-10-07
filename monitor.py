@@ -105,10 +105,19 @@ def describe(msg):
             member = msg[10] | msg[11] << 7
             version = bytes(msg[12:16]).decode("ascii", "replace")
             return "identity reply: Line 6 family %d, member %d, firmware %s" % (family, member, version)
-        if msg.startswith(jtv.SET_STRINGS_HEADER) and len(msg) == len(jtv.SET_STRINGS_HEADER) + 37:
-            data = msg[len(jtv.SET_STRINGS_HEADER):-1]
-            offsets = [jtv.decode24(data[i:i + 6]) * 12 / (1 << 23) for i in range(0, 36, 6)][::-1]
-            return "set string tuning, low E first: %s" % " ".join("%+.2g" % o for o in offsets)
+        write = jtv.parse_write(msg)
+        if write:
+            address, words = write
+            if address == jtv.STRINGS_ADDRESS and len(words) == 6:
+                offsets = [w * 12 / (1 << 23) for w in reversed(words)]
+                return "set string tuning, low E first: %s" % " ".join("%+.2g" % o for o in offsets)
+            if address == jtv.FLAGS_ADDRESS and len(words) == 1:
+                state = {jtv.FLAGS_PARALLEL_PITCH_ON: ", parallel pitch on",
+                         jtv.FLAGS_PARALLEL_PITCH_OFF: ", parallel pitch off"}.get(words[0] & 0xFFFFFF, "")
+                return "write flags 0x%06X%s" % (words[0] & 0xFFFFFF, state)
+            name = jtv.ADDRESS_NAMES.get(address, "")
+            values = " ".join("0x%06X" % (w & 0xFFFFFF) for w in words[:6]) + (" ..." if len(words) > 6 else "")
+            return "write %d words at 0x%03X%s: %s" % (len(words), address, " (%s)" % name if name else "", values)
         tuning = jtv.parse_tuning_reply(msg)
         if tuning:
             slot, name, offsets = tuning
