@@ -187,7 +187,8 @@ Workbench sends the 78 Parallel Pitch words, then the flag, to turn it on, and
 only the flag to turn it off. The Parallel Pitch pitch (+12 +12 +12 +12 0 0)
 and cents (−5 −5 −5 −7 −3 −4) settings don't appear as plain numbers; Workbench
 seems to compute the filter-like values from them. So `send.py 12string`
-replays this one captured setting verbatim. The flags word also holds other
+replays this one captured setting verbatim; `12string` and `12string off`
+work on the guitar (tested by ear). The flags word also holds other
 bits, captured on one model; writing it may reset other on/off settings.
 
 The `5E` tuning on/off SysEx from a Helix thread (for the Variax Acoustic 700)
