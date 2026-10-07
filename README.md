@@ -32,12 +32,15 @@ first.
 uv run send.py lester 5              # bank name (any case, hyphen optional) + pickup position 1-5
 uv run send.py R-BILLY 3
 uv run send.py "C0 2C"               # raw MIDI message as hex
-uv run send.py spank 1 "B0 54 03"    # several in order: Spank 1, then tuning 1/2 DOWN
+uv run send.py volume 100            # volume 0-127 (CC7)
+uv run send.py spank 1 tone 64       # tone 0-127 (CC79), after the model change
+uv run send.py spank 1 "B0 07 50"    # several in order
 ```
 
 Banks: custom1, t-model, spank, lester, special, r-billy, chime, semi,
 jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
-Program changes are sent on channel 1.
+Everything is sent on channel 1. A model change re-applies the tone knob's
+physical position, so send the tone after the model.
 
 ## What we know
 
@@ -93,14 +96,13 @@ All model and tuning names were checked by ear on a JTV-59 against what
 
 CC7 is volume and CC79 is tone (`VARIAXMIDI_volume` and `VARIAXMIDI_tone` in
 the old Linux staging driver, `drivers/staging/line6/control.h` in v2.6.32).
-CC79 also follows every program change: usually 127, but 51 for programs 2
-(Custom 1, position 3) and 45 (Acoustic 5, J-200) and 108 for program 47
-(Acoustic 3, O-18), without the tone knob moving. Possibly a tone setting
-stored with the model; on acoustic models the tone knob moves a modeled
-microphone.
+After every program change the guitar re-applies the tone knob's physical
+position and reports it as CC79, overriding a tone value sent earlier. (An
+early sweep showed 51 and 108 for a few programs; not yet explained.) On
+acoustic models the tone knob moves a modeled microphone.
 
 The guitar accepts Program Change on channel 1 to select a model (the old
-driver sent it the same way). Sending CC84 does not change the tuning; CC84
+driver sent it the same way), and CC7 and CC79 to set volume and tone. Sending CC84 does not change the tuning; CC84
 only reports the tuning knob.
 
 The Helix controls the Variax on its own MIDI channel 16, but that is the
