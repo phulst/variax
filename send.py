@@ -12,7 +12,7 @@ Usage:
   uv run send.py 12string              # 12-string sound (Parallel Pitch); "12string off" to stop
   uv run send.py "C0 2C"               # a raw MIDI message, as hex bytes
   uv run send.py spank 1 tuning dadgad # several, in order
-  uv run send.py --wait 5 lester 5     # listen 5 s after each message (default 0.5)
+  uv run send.py --wait 5 lester 5     # keep listening 5 s at the end (default 0)
 
 Bank names: custom1, t-model, spank, lester, special, r-billy, chime, semi,
 jazzbox, acoustic, reso, custom2 (hyphens and spaces are optional). Pickup
@@ -125,7 +125,8 @@ def main():
                         help='a model ("lester 5"), "volume N", "tone N", "tuning NAME", '
                              '"strings E A D G B E" offsets, "12string [on|off]", '
                              'or hex bytes of one MIDI message ("C0 2C")')
-    parser.add_argument("--wait", type=float, default=0.5, help="seconds to listen after each message")
+    parser.add_argument("--wait", type=float, default=0.0,
+                        help="seconds to keep listening after the last message (writes always wait for their acknowledgement)")
     args = parser.parse_args()
 
     try:
@@ -142,8 +143,8 @@ def main():
                     tunings = read_tunings(link)
                 name, offsets = find_tuning(tunings, msg[1])
                 msg = jtv.set_strings_message(offsets)
-            link.send(msg)
-            link.listen(args.wait)
+            link.send_and_wait_ack(msg)
+        link.listen(args.wait)
 
 
 if __name__ == "__main__":

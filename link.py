@@ -9,6 +9,9 @@ import usb.util
 from monitor import (ACTIVATE, EP_IN, EP_OUT, IDENTITY_REPLY_PREFIX, IDENTITY_REQUEST,
                      PACKET_SIZE, MidiParser, describe, hexs, open_interface)
 
+VARIAX_SYSEX = bytes.fromhex("F0 00 01 0C 07")
+ACK = 0x71  # F0 00 01 0C 07 05 71 F7
+
 
 class VariaxLink:
     def __init__(self, verbose=True):
@@ -32,8 +35,9 @@ class VariaxLink:
         received = []
         deadline = time.time() + seconds
         while time.time() < deadline:
+            timeout_ms = max(1, int(min(0.2, deadline - time.time()) * 1000))
             try:
-                data = bytes(self.dev.read(EP_IN, PACKET_SIZE, timeout=200))
+                data = bytes(self.dev.read(EP_IN, PACKET_SIZE, timeout=timeout_ms))
             except usb.core.USBTimeoutError:
                 continue
             for msg in self.midi.feed(data):
@@ -44,15 +48,25 @@ class VariaxLink:
         return received
 
     def handshake(self):
-        for _ in range(10):
+        # Selecting the interface's alternate setting (needed on every run) resets
+        # the host's USB data toggles but not always the interface's, so the first
+        # packet in either direction can be dropped as a duplicate. The identity
+        # request takes that hit: it is retried until answered (replies take
+        # 15-40 ms), so the messages that matter come after it.
+        is_reply = lambda m: m.startswith(IDENTITY_REPLY_PREFIX)
+        for _ in range(30):
             self.send(IDENTITY_REQUEST, "identity request")
-            is_reply = lambda m: m.startswith(IDENTITY_REPLY_PREFIX)
-            if any(is_reply(m) for m in self.listen(0.3, until=is_reply)):
+            if any(is_reply(m) for m in self.listen(0.08, until=is_reply)):
                 break
         else:
             sys.exit("No answer from the Variax USB Interface (it answers the identity request even with the guitar off).")
         self.send(ACTIVATE, "activate")
-        self.listen(0.2)
+
+    def send_and_wait_ack(self, msg, timeout=0.3):
+        """Send a message; for a Variax SysEx write, wait until the guitar acknowledges it."""
+        self.send(msg)
+        if msg[:1] == b"\xF0":
+            self.listen(timeout, until=lambda m: m.startswith(VARIAX_SYSEX) and len(m) == 8 and m[6] == ACK)
 
     def close(self):
         usb.util.release_interface(self.dev, 0)
