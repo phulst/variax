@@ -10,6 +10,10 @@ Usage:
   uv run send.py tuning off            # stop using the model's tuning (Workbench's Tuning button)
   uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
   uv run send.py 12string              # 12-string sound (Parallel Pitch); "12string off" to stop
+  uv run send.py magnetic              # use the magnetic pickups; "modeling" to switch back
+  uv run send.py factory spank 5       # the factory version of a model (Spank to Reso)
+  uv run send.py --on-the-fly tuning drop-d
+                                       # tuning via the on-the-fly command (whole semitones)
   uv run send.py "C0 2C"               # a raw MIDI message, as hex bytes
   uv run send.py spank 1 tuning dadgad # several, in order
   uv run send.py --wait 5 lester 5     # keep listening 5 s at the end (default 0)
@@ -50,8 +54,18 @@ def _number(token):
         return None
 
 
-def parse_messages(tokens):
-    """Turn command line tokens into a list of MIDI messages and ("tuning", name) lookups."""
+def tuning_messages(offsets, fly):
+    """Messages that set a tuning: the on-the-fly command, or Workbench's write plus tuning on."""
+    if fly:
+        return [jtv.fly_tuning_message(offsets)]
+    return [jtv.set_strings_message(offsets), jtv.tuning_enable_message(True)]
+
+
+def parse_messages(tokens, fly=False):
+    """Turn command line tokens into a list of MIDI messages and ("tuning", name) lookups.
+
+    fly: set tunings with the on-the-fly command instead of Workbench's write.
+    """
     messages = []
     tokens = list(tokens)
     while tokens:
@@ -74,13 +88,25 @@ def parse_messages(tokens):
             if len(offsets) < 6 or None in offsets or any(abs(o) > 12 for o in offsets):
                 raise ValueError("strings needs six semitone offsets, low E first, e.g. \"strings -2 0 0 0 0 0\"")
             del tokens[:6]
-            messages += [jtv.set_strings_message(offsets), jtv.tuning_enable_message(True)]
+            messages += tuning_messages(offsets, fly)
             continue
         if token.lower().replace("-", "") in ("12string", "twelvestring"):
             on = True
             if tokens and tokens[0].lower() in ("on", "off"):
                 on = tokens.pop(0).lower() == "on"
             messages.extend(jtv.twelve_string_messages(on))
+            continue
+        if token.lower() in ("magnetic", "modeling"):
+            messages.append(jtv.MAGNETIC_MESSAGE if token.lower() == "magnetic" else jtv.MODELING_MESSAGE)
+            continue
+        if token.lower() == "factory":
+            if len(tokens) < 2 or not tokens[1].isdigit() or not 1 <= int(tokens[1]) <= 5:
+                raise ValueError("factory needs a bank and a pickup position 1-5, e.g. \"factory spank 5\"")
+            program = jtv.factory_program(tokens[0], int(tokens[1]))
+            if program is None:
+                raise ValueError("no factory programs for %r; banks: %s" % (tokens[0], ", ".join(jtv.FACTORY_BANKS)))
+            del tokens[:2]
+            messages.append(bytes([0xC0 | (MIDI_CHANNEL - 1), program]))
             continue
         if token.lower() == "tuning":
             if not tokens:
@@ -91,13 +117,13 @@ def parse_messages(tokens):
             else:
                 known = jtv.find_knob_tuning(name)
                 # Factory knob tunings are built in; other names are looked up on the guitar.
-                messages += [jtv.set_strings_message(known[1]) if known else ("tuning", name),
-                             jtv.tuning_enable_message(True)]
+                messages += tuning_messages(known[1], fly) if known else [("tuning", name)]
             continue
         try:
             messages.append(bytes.fromhex(token))
         except ValueError:
-            raise ValueError("%r is not a model bank name, volume, tone, strings, tuning, 12string or hex bytes" % token)
+            raise ValueError("%r is not a model bank name, volume, tone, strings, tuning, 12string, "
+                             "magnetic, modeling, factory or hex bytes" % token)
     return messages
 
 
@@ -128,12 +154,14 @@ def main():
                         help='a model ("lester 5"), "volume N", "tone N", "tuning NAME", '
                              '"strings E A D G B E" offsets, "12string [on|off]", '
                              'or hex bytes of one MIDI message ("C0 2C")')
+    parser.add_argument("--on-the-fly", action="store_true",
+                        help="set tunings with the on-the-fly SysEx (52 04, whole semitones) instead of Workbench's write")
     parser.add_argument("--wait", type=float, default=0.0,
                         help="seconds to keep listening after the last message (writes always wait for their acknowledgement)")
     args = parser.parse_args()
 
     try:
-        messages = parse_messages(args.messages)
+        messages = parse_messages(args.messages, fly=args.on_the_fly)
     except ValueError as e:
         sys.exit(str(e))
 
@@ -145,7 +173,9 @@ def main():
                 if tunings is None:
                     tunings = read_tunings(link)
                 name, offsets = find_tuning(tunings, msg[1])
-                msg = jtv.set_strings_message(offsets)
+                for tuning_msg in tuning_messages(offsets, args.on_the_fly):
+                    link.send_and_wait_ack(tuning_msg)
+                continue
             link.send_and_wait_ack(msg)
         link.listen(args.wait)
 

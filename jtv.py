@@ -243,6 +243,56 @@ def find_knob_tuning(name):
     return (found, KNOB_TUNINGS[found]) if found else None
 
 
+# From the "Variax MIDI reference" spreadsheet (community reverse engineering).
+# Command 52 with our address 00: magnetic pickups (00) or modeling (01), like
+# pushing the model knob.
+PICKUP_MODE = bytes.fromhex("F0 00 01 0C 07 00 52")
+MAGNETIC_MESSAGE = PICKUP_MODE + bytes([0x00, 0xF7])
+MODELING_MESSAGE = PICKUP_MODE + bytes([0x01, 0xF7])
+# Command 52 04 with the guitar's address 05: an on-the-fly tuning, credited to
+# Joe Bear. Six signed whole semitones, high E string first, each as a byte
+# split into two nibbles, high nibble first (0F 0E = -2).
+FLY_TUNING_HEADER = bytes.fromhex("F0 00 01 0C 07 05 52 04")
+
+# Programs 60-104 select the factory version of a model, whatever is stored on
+# the knob: Spank to Reso, 5 per bank, position 5 (neck) first like the knob.
+FACTORY_FIRST_PROGRAM = 60
+FACTORY_BANKS = ["Spank", "Lester", "Special", "R-Billy", "Chime", "Semi", "Jazzbox", "Acoustic", "Reso"]
+
+
+def fly_tuning_message(offsets):
+    """On-the-fly tuning SysEx; offsets are whole semitones, low E string first."""
+    if len(offsets) != 6:
+        raise ValueError("need six string offsets")
+    if any(abs(o - round(o)) > 0.01 or not -64 <= o <= 63 for o in offsets):
+        raise ValueError("on-the-fly tunings take whole semitones")
+    data = bytearray()
+    for o in reversed(offsets):
+        byte = round(o) & 0xFF
+        data += bytes([byte >> 4, byte & 0x0F])
+    return FLY_TUNING_HEADER + bytes(data) + b"\xF7"
+
+
+def parse_fly_tuning(msg):
+    """Offsets (low E first) of an on-the-fly tuning SysEx, or None."""
+    if not msg.startswith(FLY_TUNING_HEADER) or len(msg) != len(FLY_TUNING_HEADER) + 13:
+        return None
+    body = msg[len(FLY_TUNING_HEADER):-1]
+    values = []
+    for i in range(0, 12, 2):
+        byte = body[i] << 4 | body[i + 1]
+        values.append(byte - 256 if byte & 0x80 else byte)
+    return list(reversed(values))
+
+
+def factory_program(bank, pickup_position):
+    """Program number of a factory model, or None if the bank has no factory programs."""
+    names = [_normalize(b) for b in FACTORY_BANKS]
+    if _normalize(bank) not in names:
+        return None
+    return FACTORY_FIRST_PROGRAM + names.index(_normalize(bank)) * 5 + (5 - pickup_position)
+
+
 def program_to_position(program):
     """Return (knob_index 0..11, pickup position 1..5) for a program number."""
     return program // 5, 5 - program % 5
@@ -266,6 +316,11 @@ def bank_index(name):
 
 
 def describe_program(program):
+    if FACTORY_FIRST_PROGRAM <= program < FACTORY_FIRST_PROGRAM + 5 * len(FACTORY_BANKS):
+        index, position = program_to_position(program - FACTORY_FIRST_PROGRAM)
+        bank = FACTORY_BANKS[index]
+        models = dict(BANKS)[bank]
+        return "factory %s %d: %s" % (bank, position, models[position - 1])
     knob_index, position = program_to_position(program)
     if knob_index >= len(BANKS):
         return "unknown program %d" % program

@@ -38,6 +38,9 @@ uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by na
 uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
 uv run send.py tuning off            # stop using the model's tuning
 uv run send.py 12string              # 12-string sound; "12string off" to stop
+uv run send.py magnetic              # magnetic pickups; "modeling" to switch back
+uv run send.py factory spank 5       # factory version of a model (programs 60-104)
+uv run send.py --on-the-fly tuning drop-d   # tuning via the 52 04 command (whole semitones)
 uv run send.py spank 1 "B0 07 50"    # several in order
 ```
 
@@ -198,6 +201,25 @@ does nothing on the JTV.
 - `workbench-tuning-toggle-parallel-pitch.json`: Tuning on/off three times,
   then Parallel Pitch on/off twice with the settings in
   `workbench-parallel-pitch-12string.png`.
+
+**Community reference.** A spreadsheet, "Variax MIDI reference" (reverse
+engineered from VDI traffic; on-the-fly tuning credited to Joe Bear), agrees
+with the findings above: channel 1, CC7/CC79, the program numbering, CC84 as
+send-only, the activate message ("SendModus", `F0 00 01 0C 07 00 2A F7`) and
+the tuning on/off write. It adds, all implemented in `send.py` but not yet
+tested on this guitar:
+
+- Magnetic pickups `F0 00 01 0C 07 00 52 00 F7`, modeling `… 52 01 F7`.
+- On-the-fly tuning `F0 00 01 0C 07 05 52 04` + six signed bytes, high E
+  first, each as two nibbles high nibble first (`0F 0E` = −2) + `F7`. Whole
+  semitones only. Of its examples, "Open D" only decodes to Open D with the
+  low E string first, while "Blues G" fits high E first as described.
+- Programs 60–104: factory versions of Spank … Reso, 5 per bank.
+
+It labels the Parallel Pitch flag values the other way round ("tentative");
+the capture shows bits `0x080010` set means on (Workbench sends the settings
+block just before it). Its flag values also differ in other bits, so the flags
+word holds more than Parallel Pitch.
 
 ## Powering the guitar
 

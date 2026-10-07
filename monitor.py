@@ -120,6 +120,11 @@ def describe(msg):
             name = jtv.ADDRESS_NAMES.get(address, "")
             values = " ".join("0x%06X" % (w & 0xFFFFFF) for w in words[:6]) + (" ..." if len(words) > 6 else "")
             return "write %d words at 0x%03X%s: %s" % (len(words), address, " (%s)" % name if name else "", values)
+        if msg in (jtv.MAGNETIC_MESSAGE, jtv.MODELING_MESSAGE):
+            return "magnetic pickups" if msg == jtv.MAGNETIC_MESSAGE else "modeling"
+        fly = jtv.parse_fly_tuning(msg)
+        if fly:
+            return "on-the-fly tuning, low E first: %s" % " ".join("%+d" % o for o in fly)
         tuning = jtv.parse_tuning_reply(msg)
         if tuning:
             slot, name, offsets = tuning
