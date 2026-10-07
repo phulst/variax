@@ -42,6 +42,18 @@ jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
 Everything is sent on channel 1. A model change re-applies the tone knob's
 physical position, so send the tone after the model.
 
+## Dump: `dump.py`
+
+Reads the current model's settings from the guitar (read-only requests from
+the old Linux staging driver) and decodes them. Save one dump and diff another
+against it to find which bytes a setting lives in.
+
+```bash
+uv run dump.py                   # model name, bank, decoded fields, all 156 bytes
+uv run dump.py --save std.json   # save the dump
+uv run dump.py --diff std.json   # show bytes that differ from the saved dump
+```
+
 ## What we know
 
 **The interface.** USB `0e41:534d`, vendor-specific class, so macOS never shows
@@ -107,6 +119,18 @@ only reports the tuning knob.
 
 The Helix controls the Variax on its own MIDI channel 16, but that is the
 Helix's side; on the VDI/USB side the guitar uses channel 1.
+
+**Model data.** The old staging driver (`drivers/staging/line6/variax.c` in
+Linux 2.6.32) reads a model's settings with two SysEx requests,
+`F0 00 01 0C 07 00 3C 00 02 00 00 00 00 03 05 03 00 00 00 F7` and the same
+with `07` in place of the second `05`, and the bank name with
+`F0 00 01 0C 07 00 6D F7`. The JTV answers all three (replies start
+`F0 00 01 0C 07 05 3C` / `… 6D`). The data comes as 4-bit nibbles, six
+nibbles per three bytes: an 18-byte name ("Spank-2") and 156 bytes of
+settings. The bank reply is plain ASCII ("U-SPANK"). Under the original
+Variax layout the fields up to `volume_dump` decode sensibly on the JTV (for
+Spank: capacitance 0.022, tone and volume pots 250); the tuning fields after
+them do not, so the JTV layout differs from byte 50 on.
 
 ## Powering the guitar
 
