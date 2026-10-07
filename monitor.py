@@ -38,8 +38,8 @@ LINE6_SYSEX_PREFIX = bytes([0xF0, 0x00, 0x01, 0x0C])
 
 # Names from the old Linux staging driver (drivers/staging/line6/control.h, VARIAXMIDI_*).
 CC_NAMES = {
-    0x07: "volume; ramps 64 to 127 at power-on",
-    0x4F: "tone; sent after every program change with the tone stored for that model",
+    0x07: "volume knob",
+    0x4F: "tone knob",
 }
 
 
