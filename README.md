@@ -1,253 +1,197 @@
 # variax
 
-Reverse-engineering the control protocol of a Line 6 James Tyler Variax (JTV),
-with the goal of building a custom MIDI controller for models and tunings.
-Talks to the guitar through the **Line 6 Variax USB Interface**.
+Command line control for Line 6 James Tyler Variax (JTV) guitars through the
+Line 6 Variax USB Interface: select models, set volume, tone and any tuning,
+switch on a 12-string sound, and watch what the guitar's knobs send.
 
-## Setup
+Line 6 has retired the Variax line, including the USB interface and its
+software. This is an unofficial community project to keep these guitars
+useful. It is not affiliated with or endorsed by Line 6 or Yamaha.
+
+## Requirements
+
+- **macOS.** Windows and Linux are not supported yet; see
+  [Contributing](#contributing).
+- Python 3.11 or newer.
+- A Line 6 **Variax USB Interface**, connected to the guitar's VDI jack.
+- The guitar switched on: with the USB interface the guitar runs on its
+  battery, and only switches on with a 1/4" cable plugged into its output jack.
+- No other program using the interface: close Line 6 Central and Workbench HD.
+
+Tested on a JTV-59. Other JTV models and the Variax Standard use the same
+interface and probably work; the model names in the output come from the
+JTV-59/69 Pilot's Guide.
+
+## Install
+
+```bash
+pip install variax
+```
+
+or with [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/):
+`uv tool install variax`, `pipx install variax`.
+
+## Usage
+
+```bash
+variax send -n 'lester 5'                   # select a model: bank + pickup position (1 = bridge, 5 = neck)
+variax send -n 'Rbilly 3'                   # names are case-insensitive, hyphens optional
+variax send -p 18                           # or by program number (0-59 knob positions, 60-104 factory models)
+variax send -n 'factory spank 5'            # the factory version of a model
+variax send -p 18 --volume 100 --tone 64    # volume and tone, 0-127
+variax send -n 'lester 5' --tuning dadgad   # a tuning by name; without --keep, the tuning knob
+                                            # must be on MODEL
+variax send --tuning dadgad --keep          # works with the tuning knob anywhere and stays through
+                                            # model changes until you turn the knob; whole semitones
+variax send -s 'E B E G# B E'               # any tuning, low E first, as notes...
+variax send -s '-1 -1 -1 -1 -1 -1'          # ...or semitones from standard (fractions allowed)
+variax send --tuning none                   # no pitch shift: strings sound as physically tuned
+variax send --twelve-string on              # 12-string sound; "off" to stop
+variax send --pickups magnetic              # magnetic pickups; "modeling" to switch back
+variax send -n 'semi 1' --dry-run           # show the MIDI messages without sending them
+```
+
+**Tunings and the tuning knob.** Without `--keep`, a tuning becomes the
+current model's own tuning: the guitar only plays it with the tuning knob on
+**MODEL**, and a model change resets it. With `--keep`, the tuning plays with
+the knob in any position and stays through model changes, until you turn the
+knob; it only takes whole semitones.
+
+`send` always sends in the same order (pickups, model, volume, tone, tuning,
+12-string), so tone and tuning follow the model change in one command. They
+have to: a model change reloads the stored model, with its own tone and
+tuning. Nothing is ever saved to the guitar, so your presets stay untouched.
+
+`--strings` takes six notes or numbers, low E string first, separated by
+spaces or commas: `'D A D G A D'`, `'Eb Ab Db Gb Bb Eb'` (or `♭`/`♯`),
+`'-2 0 0 0 -2 -2'`, or a mix. A note means the nearest pitch to the standard
+string, at most a tritone up or down, so `B` on the low string is a baritone
+B; add the octave for anything further, e.g. `'E1 A1 D2 G2 B2 E3'` for an
+octave down (standard is E2 A2 D3 G3 B3 E4).
+
+Tuning names, the factory tunings of all JTV models: `standard`, `drop d`,
+`half down` (`1/2 down`), `drop db`, `one down` (`1 down`), `dadgad`,
+`open d`, `blues` (`blues g`), `reso` (`reso g`), `open a`, `baritone`,
+`drop c`, `m3 down` (minor third), `drop b`, `M3 down` (major third) and
+`drop bb`. Case doesn't matter, except for `m3`/`M3`; `minor 3rd down` and
+`major 3rd down` work too. Other names are looked up among the tunings stored
+on your guitar's tuning knob.
+
+Other commands:
+
+```bash
+variax monitor     # print what the guitar sends as you turn its knobs; run
+                   # 'variax tunings --save' first to see tuning knob names
+variax tunings     # the tunings on the tuning knob, and the current model's tuning
+variax tunings --save   # also save the knob's tunings to tunings.json
+variax midi        # a virtual MIDI port for MainStage and other apps (see below)
+variax models      # list all program numbers and model names
+variax dump        # read and decode the current model's settings
+variax read 0x41C 6   # read words of the current model (for exploring; see docs/PROTOCOL.md)
+variax --help      # all commands; variax send --help for all send options
+```
+
+`variax tunings --save` writes the tunings stored on the guitar's knob to
+`tunings.json` in the current directory, with the names and strings as the
+guitar reports them (which may differ from the factory tunings). `variax monitor` uses this file,
+when it is in the current directory, to name the tuning knob's positions;
+without it, it shows them as numbers.
+
+The file looks like this:
+
+```json
+{
+  "tunings": [
+    {"name": "STANDARD", "strings": "E A D G B E"},
+    {"name": "DROP D", "strings": "D A D G B E"}
+  ]
+}
+```
+
+## Control from MainStage, a DAW or a MIDI controller
+
+`variax midi` creates a virtual MIDI port called **Variax** that other apps
+can send to, and translates what they send into changes on the guitar. The
+guitar's own knob changes come back out of the same port. It runs until you
+press Ctrl-C.
+
+```bash
+variax tunings --save         # once: save your tuning knob's tunings to tunings.json
+variax midi --write-config    # once: create variax.toml with every setting and its default
+variax midi                   # run the bridge (in the directory with both files)
+```
+
+In MainStage (or any app), choose **Variax** as a MIDI output and have your
+patches send these on channel 1 (the defaults; all of it can be changed in
+`variax.toml`):
+
+| Send | Does |
+|---|---|
+| Program Change 0–104 | selects that model (as `variax models` lists them) |
+| CC 7 / CC 79 | volume / tone, 0–127 |
+| CC 84 | tuning: 0 = none, 1–11 = the tuning knob's tunings, 12+ = your own `[tunings]` |
+| CC 85 | 12-string: 0–63 off, 64–127 on |
+| CC 86 | pickups: 0–63 magnetic, 64–127 modeling |
+| CC 20–25 | each string's tuning, low E first: 64 = standard, 52–76 = −12 to +12 semitones |
+| CC 26–31 | each string's fine tuning in cents, low E first: 64 = 0 |
+| Line 6 SysEx | passed to the guitar unchanged |
+
+Volume, tone and tuning use the same CC numbers the guitar uses to report its
+own knobs, so a MainStage control on CC 7 both sets the guitar's volume and
+follows its volume knob.
+
+With `program_change = "patches"` in `variax.toml`, a Program Change applies a
+whole `[patch.N]` instead: model, volume, tone, tuning, 12-string and pickups
+in one go, for controllers that can only send one Program Change per patch.
+`variax.toml` documents every setting.
+
+Tunings work as with `variax send`: by default (`tuning_method = "model"`) the
+tuning knob has to be on MODEL; with `tuning_method = "keep"` it works with
+the knob anywhere, in whole semitones. The bridge sends up to about 25 tuning
+changes per second; when an app sends faster, it skips to the newest value.
+
+## How it works
+
+The Variax USB Interface doesn't show up as a MIDI device: it uses its own USB
+protocol, so `variax` talks to it directly with libusb. Underneath, it carries
+plain MIDI messages plus Line 6 SysEx. The protocol notes, with every message
+and how it was found, are in [docs/PROTOCOL.md](docs/PROTOCOL.md).
+
+## Contributing
+
+Help with **Windows and Linux support** is very welcome, as are reports from
+other Variax models. What is known so far:
+
+- Linux: the kernel's own Line 6 driver (`snd-usb-variax`) claims the
+  interface, so `variax` would have to detach it, and users need a udev rule
+  for access without root.
+- Windows: libusb needs the WinUSB driver on the interface (e.g. installed with
+  Zadig), which replaces Line 6's driver while it is installed.
+
+The tests run without a guitar:
 
 ```bash
 uv sync
+uv run pytest
 ```
 
-## Monitor: `monitor.py`
+## Credits
 
-Does the startup handshake, then prints every message the guitar sends with a
-decoded description. Turn the guitar's knobs and watch.
+Reverse engineered by Peter Hulst, by monitoring the guitar and capturing the
+USB traffic of Line 6 Workbench HD. With thanks to:
 
-```bash
-uv run monitor.py                 # handshake, then print until Ctrl-C
-uv run monitor.py --raw           # raw USB packets instead of decoded messages
-uv run monitor.py --no-handshake  # listen only (the guitar stays silent)
-uv run monitor.py --seconds 30    # stop after 30 seconds
-```
+- Joe Bear, for the on-the-fly tuning SysEx, and the authors of the community
+  "Variax MIDI reference" spreadsheet, for the magnetic/modeling switch and the
+  factory program numbers.
+- Markus Grabner and the Linux kernel Line 6 driver
+  ([`sound/usb/line6/variax.c`](https://github.com/torvalds/linux/blob/master/sound/usb/line6/variax.c),
+  and the older [staging driver](https://github.com/torvalds/linux/tree/v2.6.32/drivers/staging/line6)),
+  for the handshake and the model data requests.
+- The [VGuitar Forums](https://www.vguitarforums.com/smf/index.php?topic=13484.0)
+  and [Line 6 Community](https://line6.com/support/topic/60167-controlling-jtv-guitar-models-and-settings-via-midi/)
+  discussions of the Variax and its VDI interface.
 
-## Send: `send.py`
+## License
 
-Selects a model by name, or sends raw MIDI messages, then prints what comes
-back. Only one script can use the interface at a time, so stop `monitor.py`
-first.
-
-```bash
-uv run send.py lester 5              # bank name (any case, hyphen optional) + pickup position 1-5
-uv run send.py R-BILLY 3
-uv run send.py "C0 2C"               # raw MIDI message as hex
-uv run send.py volume 100            # volume 0-127 (CC7)
-uv run send.py spank 1 tone 64       # tone 0-127 (CC79), after the model change
-uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by name
-uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
-uv run send.py tuning off            # stop using the model's tuning
-uv run send.py 12string              # 12-string sound; "12string off" to stop
-uv run send.py magnetic              # magnetic pickups; "modeling" to switch back
-uv run send.py factory spank 5       # factory version of a model (programs 60-104)
-uv run send.py --on-the-fly tuning drop-d   # tuning via the 52 04 command (whole semitones)
-uv run send.py spank 1 "B0 07 50"    # several in order
-```
-
-Banks: custom1, t-model, spank, lester, special, r-billy, chime, semi,
-jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
-Tunings are set the way Workbench HD does it, as the current model's string
-offsets plus switching the model's tuning on (address `0x422`; while it is
-off, written offsets are ignored), and are heard **only with the tuning knob on MODEL** (any other knob
-position plays the knob's own tuning). The 11 factory knob tunings are built
-in (`jtv.KNOB_TUNINGS`, also under the Pilot's Guide names such as "1/2 down");
-other names are looked up among the tunings stored on the guitar's knob.
-Everything else is sent on channel 1. A model change re-applies the tone knob's
-physical position, so send the tone after the model.
-
-## Dump: `dump.py`
-
-Reads the current model's settings from the guitar (read-only requests from
-the old Linux staging driver) and decodes them. Save one dump and diff another
-against it to find which bytes a setting lives in.
-
-```bash
-uv run dump.py                   # model name, bank, decoded fields, all 156 bytes
-uv run dump.py --save std.json   # save the dump
-uv run dump.py --diff std.json   # show bytes that differ from the saved dump
-```
-
-## What we know
-
-**The interface.** USB `0e41:534d`, vendor-specific class, so macOS never shows
-it as a MIDI port and no Line 6 driver is needed; we use libusb directly. After
-selecting alternate setting 1 of interface 0 it carries **raw MIDI bytes** over
-interrupt endpoints OUT `0x01` and IN `0x82` (32-byte packets). The Linux
-kernel driver `sound/usb/line6/variax.c` supports this device and is where the
-handshake comes from.
-
-**Handshake.**
-
-1. Send `F0 7E 7F 06 01 F7` (Universal Identity Request) until it answers
-   `F0 7E 7F 06 02 00 01 0C 07 00 05 00 30 32 32 33 F7`
-   (Line 6, family 7, member 5, firmware "0223"). The interface answers this
-   itself, even with the guitar switched off.
-2. Send `F0 00 01 0C 07 00 2A 01 F7` (activate). Before this the guitar sends
-   nothing. The activation survives switching the guitar off and on; not yet
-   tested whether it survives unplugging the USB interface.
-
-**What the guitar reports (channel 1), from one capture:**
-
-| Control | Message | Notes |
-|---|---|---|
-| Model knob | Program Change, steps of 5 (4, 9, … 59 for Custom 1 … Custom 2) | followed by CC79 (tone) |
-| Pickup selector | Program Change within a group of 5 (40, 42, 44) | followed by CC79 (tone) |
-| Tuning knob | CC84 = position − 1 (0–11, 12 positions) | |
-| Tuning-knob push (white, then blue light) | `FF` (reset), then Program Change and CC79 | on a JTV-59 this toggles the 3-way selector between models 1-3-5 and 2-3-4 |
-| Volume knob | CC7 = 0–127 | one message per step while turning |
-| Tone knob | CC79 = 0–127 | one message per step while turning; also sent after every program change |
-| Power-on | CC7 (volume) ramping 64 → 127 in ~60 ms | a fade-in; the same whether the light comes on white or blue (the guitar keeps the last state) |
-
-Every combination of model knob and pickup selector is its own program (the
-Pilot's Guide calls them the 60 Guitar Model preset locations), and the guitar
-reports it as a single Program Change:
-
-    program = knob_index × 5 + (5 − pickup_position)
-
-- `knob_index` 0–11: Custom 1, T-Model, Spank, Lester, Special, R-Billy,
-  Chime, Semi, Jazzbox, Acoustic, Reso, Custom 2.
-- `pickup_position` 1–5 as in the Pilot's Guide, 1 = bridge, 5 = neck. The
-  bridge (down) position gives the highest number in each group of five.
-- On a JTV-59 the 3-way selector reaches positions 1-3-5, or 2-3-4 after
-  pushing the tuning knob.
-
-The tuning knob sends CC84 = 0–11: MODEL, then STANDARD and the ten factory
-alternate tunings in the Pilot's Guide table order.
-
-All model and tuning names were checked by ear on a JTV-59 against what
-`monitor.py` prints.
-
-[jtv.py](jtv.py) has the model and tuning names; `monitor.py` prints them.
-
-CC7 is volume and CC79 is tone (`VARIAXMIDI_volume` and `VARIAXMIDI_tone` in
-the old Linux staging driver, `drivers/staging/line6/control.h` in v2.6.32).
-After every program change the guitar re-applies the tone knob's physical
-position and reports it as CC79, overriding a tone value sent earlier. (An
-early sweep showed 51 and 108 for a few programs; not yet explained.) On
-acoustic models the tone knob moves a modeled microphone.
-
-The guitar accepts Program Change on channel 1 to select a model (the old
-driver sent it the same way), and CC7 and CC79 to set volume and tone. Sending CC84 does not change the tuning; CC84
-only reports the tuning knob.
-
-The Helix controls the Variax on its own MIDI channel 16, but that is the
-Helix's side; on the VDI/USB side the guitar uses channel 1.
-
-**Model data.** The old staging driver (`drivers/staging/line6/variax.c` in
-Linux 2.6.32) reads a model's settings with two SysEx requests,
-`F0 00 01 0C 07 00 3C 00 02 00 00 00 00 03 05 03 00 00 00 F7` and the same
-with `07` in place of the second `05`, and the bank name with
-`F0 00 01 0C 07 00 6D F7`. The JTV answers all three (replies start
-`F0 00 01 0C 07 05 3C` / `… 6D`). The data comes as 4-bit nibbles, six
-nibbles per three bytes: an 18-byte name ("Spank-2") and 156 bytes of
-settings. The bank reply is plain ASCII ("U-SPANK"). Under the original
-Variax layout the fields up to `volume_dump` decode sensibly on the JTV (for
-Spank: capacitance 0.022, tone and volume pots 250); the tuning fields after
-them do not, so the JTV layout differs from byte 50 on.
-
-**Tunings (from a Workbench HD USB capture on Windows).** Workbench addresses
-the guitar as `F0 00 01 0C 07 05` (the guitar's own address; we send `07 00`).
-
-- Set the current model's string tuning (heard when the tuning knob is on
-  MODEL; confirmed by ear with `strings -5 -5 -5 -5 -5 -5`):
-  `F0 00 01 0C 07 05 43 06 00 00 00 00 00 0C 01 04 00 00 00` + six 24-bit
-  pitch offsets, **high E string first** + `F7`. The guitar answers
-  `F0 00 01 0C 07 05 71 F7`. `jtv.set_strings_message()` rebuilds all eight
-  captured messages byte for byte.
-- Read tuning knob slot 1–11: `F0 00 01 0C 07 05 1B <slot> F7`. The reply has
-  the six offsets (high E first) and an 18-character name. Slots on this
-  guitar: STANDARD, DROP D, HALF DOWN, DROP Db, ONE DOWN, DADGAD, OPEN D,
-  BLUES, RESO, OPEN A, BARITONE (BARITONE holds −4 −2 −2 −2 −2 −2, not the
-  manual's −5 on every string).
-- A 24-bit value is sent as six 4-bit nibbles, least significant first. A
-  pitch offset is signed with 2²³ = one octave, so one semitone is 2²³/12.
-  Names use the same 3-bytes-in-6-nibbles packing as the model data.
-
-**Writes are not saved.** Command 43 changes the guitar's working copy of
-the current model. Switching to another model and back reloads the stored
-model, with its stored tuning and Parallel Pitch. So send tuning and 12string
-after every model change (`send.py lester 5 tuning dadgad`); stored presets
-are never changed. Workbench's save step (writing to the guitar's storage)
-has not been captured.
-
-**Command 43 is a generic write** (from a second capture, toggling Tuning
-and Parallel Pitch in Workbench):
-`F0 00 01 0C 07 05 43 <word count> <word address> <words> F7`, each of the
-two header fields a 24-bit word like the data. Addresses seen so far (words;
-per-string values high E first):
-
-| Address | Words | Contents |
-|---|---|---|
-| `0x001` | 1 | flags; Parallel Pitch on = `0x090BFF`, off = `0x010BEF` (bits `0x080010`) |
-| `0x2AE` | 78 | Parallel Pitch: 6 small values per string, 60 values (10 per string) that look like filter coefficients, 6 dry levels (0.7), 6 wet levels (0.3 = mix 30%) |
-| `0x41C` | 6 | string tuning offsets |
-| `0x422` | 1 | Tuning on/off (Workbench's power button), 0 or 1 |
-
-Workbench sends the 78 Parallel Pitch words, then the flag, to turn it on, and
-only the flag to turn it off. The Parallel Pitch pitch (+12 +12 +12 +12 0 0)
-and cents (−5 −5 −5 −7 −3 −4) settings don't appear as plain numbers; Workbench
-seems to compute the filter-like values from them. So `send.py 12string`
-replays this one captured setting verbatim; `12string` and `12string off`
-work on the guitar (tested by ear). The flags word also holds other
-bits, captured on one model; writing it may reset other on/off settings.
-
-The `5E` tuning on/off SysEx from a Helix thread (for the Variax Acoustic 700)
-does nothing on the JTV.
-
-**Captures** (Wireshark JSON exports of USBPcap captures on Windows, in
-`captures/`):
-
-- `workbench-tunings.json`: Workbench reading the 11 knob tunings (`1B`) and
-  setting STANDARD, DROP D, HALF DOWN, DROP Db, ONE DOWN and DADGAD (`43`).
-- `workbench-tuning-toggle-parallel-pitch.json`: Tuning on/off three times,
-  then Parallel Pitch on/off twice with the settings in
-  `workbench-parallel-pitch-12string.png`.
-
-**Community reference.** A spreadsheet, "Variax MIDI reference" (reverse
-engineered from VDI traffic; on-the-fly tuning credited to Joe Bear), agrees
-with the findings above: channel 1, CC7/CC79, the program numbering, CC84 as
-send-only, the activate message ("SendModus", `F0 00 01 0C 07 00 2A F7`) and
-the tuning on/off write. It adds, all implemented in `send.py` but not yet
-tested on this guitar:
-
-- Magnetic pickups `F0 00 01 0C 07 00 52 00 F7`, modeling `… 52 01 F7`.
-- On-the-fly tuning `F0 00 01 0C 07 05 52 04` + six signed bytes, high E
-  first, each as two nibbles high nibble first (`0F 0E` = −2) + `F7`. Whole
-  semitones only. Of its examples, "Open D" only decodes to Open D with the
-  low E string first, while "Blues G" fits high E first as described.
-- Programs 60–104: factory versions of Spank … Reso, 5 per bank.
-
-It labels the Parallel Pitch flag values the other way round ("tentative");
-the capture shows bits `0x080010` set means on (Workbench sends the settings
-block just before it). Its flag values also differ in other bits, so the flags
-word holds more than Parallel Pitch.
-
-## Powering the guitar
-
-With the Variax USB Interface (unlike a Helix or POD HD) the guitar runs on
-its battery, and the electronics only switch on with a 1/4" cable plugged into
-the guitar's output jack. Without that, the interface still answers the
-handshake but messages sent to the guitar do nothing.
-
-## Caution
-
-Only send messages that we have seen the guitar or Workbench use. Large SysEx
-transfers are probably flash or firmware writes.
-
-## References
-
-- [Line 6 VDI Interface](https://www.vguitarforums.com/smf/index.php?topic=13484.0),
-  VGuitar Forums: community discussion of the VDI interface.
-- Linux kernel driver for the Variax USB Interface:
-  [`sound/usb/line6/variax.c`](https://github.com/torvalds/linux/blob/master/sound/usb/line6/variax.c)
-  (handshake), and the older staging driver
-  [`drivers/staging/line6/`](https://github.com/torvalds/linux/tree/v2.6.32/drivers/staging/line6)
-  in Linux 2.6.32 (model and bank requests, CC7/CC79, model data layout).
-- "Variax MIDI reference" spreadsheet (community reverse engineering of VDI
-  traffic; on-the-fly tuning credited to Joe Bear).
-- [Helix / Variax Acoustic 700 MIDI information](https://line6.com/support/topic/65841-helix-variax-acoustic-700-midi-information/),
-  Line 6 Community: the `5E` tuning SysEx (no effect on the JTV).
-- [Controlling JTV guitar models and settings via MIDI](https://line6.com/support/topic/60167-controlling-jtv-guitar-models-and-settings-via-midi/),
-  Line 6 Community.
-- James Tyler Variax Pilot's Guide (Line 6): model banks, pickup numbering,
-  factory tunings.
+MIT. Line 6, Variax, James Tyler and the guitar names used for the models are
+trademarks of their respective owners.

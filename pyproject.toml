@@ -1,9 +1,40 @@
 [project]
 name = "variax"
 version = "0.1.0"
-description = "Talk to a Line 6 James Tyler Variax through the Variax USB Interface"
-requires-python = ">=3.12"
+description = "Unofficial command line control for Line 6 James Tyler Variax guitars through the Variax USB Interface"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Peter Hulst" }]
+requires-python = ">=3.11"
 dependencies = [
+    "click>=8.1",
     "libusb-package>=1.0.26",
+    "python-rtmidi>=1.5.8",
     "pyusb>=1.3.1",
 ]
+keywords = ["line6", "line 6", "variax", "jtv", "james tyler", "guitar", "midi", "usb"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+]
+
+[project.scripts]
+variax = "variax.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/variax", "tests", "docs", "README.md", "LICENSE"]
+
+[dependency-groups]
+dev = ["pytest>=8"]

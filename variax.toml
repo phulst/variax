@@ -1,0 +1,78 @@
+# variax.toml: settings for `variax midi`, the MIDI bridge.
+#
+# The bridge creates a virtual MIDI port that other apps (MainStage, a DAW, a
+# MIDI controller) can send to, and translates what they send into messages
+# for the guitar. Every setting is optional; the values shown are the defaults.
+
+[midi]
+port = "Variax"               # name of the virtual MIDI port other apps see
+channel = 1                   # channel the bridge listens on and sends on (1-16)
+forward_from_guitar = true    # pass changes of the guitar's knobs (model, tuning, volume,
+                              # tone) and pickup selector to the port, using the same
+                              # Program Change and CC numbers as below
+
+program_change = "models"     # "models": Program Change 0-104 selects a model, as the guitar
+                              #   numbers them (0-59 knob positions, 60-104 factory models)
+                              # "patches": Program Change N applies [patch.N] below
+patch_fallback = false        # only with "patches": a Program Change without a [patch.N]
+                              # selects model N and changes nothing else (false: ignore it)
+
+[cc]
+# Controller numbers, the same for receiving and sending. Volume, tone and
+# tuning are the numbers the JTV itself uses to report its knobs; the guitar
+# has none of its own for the others. Set a feature to false to ignore it.
+volume = 7                    # 0-127
+tone = 79                     # 0-127
+tuning = 84                   # 0 = none (strings as physically tuned), 1-11 = the tuning
+                              # knob's tunings, 12 and up = [tunings] below
+twelve_string = 85            # 0-63 off, 64-127 on
+pickups = 86                  # 0-63 magnetic, 64-127 modeling
+
+# Per-string tuning: each string's offset from standard tuning, as a coarse
+# value in semitones plus a fine value in cents. Low E string first.
+string_semitones = [20, 21, 22, 23, 24, 25]   # 64 = standard; 52-76 = -12 to +12 semitones
+string_cents = [26, 27, 28, 29, 30, 31]       # 64 = 0 cents, 1 cent per step (0-127 = -64 to +63).
+                                              # 100 cents is a semitone, so on a D string, values
+                                              # 14 to 114 (-50 to +50 cents) go from a quarter tone
+                                              # below D to a quarter tone above it, halfway to C#
+                                              # and halfway to D#; for C# or D# use semitones 63 or 65.
+                                              # Cents need tuning_method = "model".
+
+[behavior]
+tuning_method = "model"             # "model": the tuning becomes the current model's tuning;
+                                    # only heard with the tuning knob on MODEL, and a model
+                                    # change resets it; allows fractions of a semitone
+                                    # "keep": whole semitones only, but works with the
+                                    # tuning knob anywhere and stays through model changes,
+                                    # until the knob is turned (the on-the-fly tuning SysEx)
+reapply_tuning_after_model = true   # only with program_change = "models" and tunings sent
+                                    # with the "model" method: after each model change,
+                                    # re-send the last tuning received on the tuning CC (a
+                                    # "keep" tuning stays through model changes by itself)
+
+[tunings]
+# Extra tunings for tuning CC values 12 and up. Anything `variax send --tuning`
+# or `--strings` accepts: a tuning name, notes or semitone offsets, low E first.
+# 12 = "E B E G# B E"
+# 13 = "D2 A2 D3 G3 A3 D4"
+# 14 = "-1 -1 -1 -1 -1 -1"
+
+# Patches, used with program_change = "patches": Program Change N applies
+# [patch.N]. Fields are the same as for `variax send`: model (a name) or
+# program (a number), volume, tone, tuning or strings, twelve_string and
+# pickups. The model is sent first; anything left out stays as it is.
+#
+# [patch.1]
+# model = "lester 5"
+# tuning = "dadgad"
+# tone = 90
+#
+# [patch.2]
+# model = "factory spank 5"
+# strings = "E B E G# B E"
+# twelve_string = true
+#
+# [patch.3]
+# model = "acoustic 2"
+# volume = 100
+# tuning = "none"
