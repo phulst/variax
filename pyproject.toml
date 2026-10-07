@@ -1,0 +1,9 @@
+[project]
+name = "variax"
+version = "0.1.0"
+description = "Talk to a Line 6 James Tyler Variax through the Variax USB Interface"
+requires-python = ">=3.12"
+dependencies = [
+    "libusb-package>=1.0.26",
+    "pyusb>=1.3.1",
+]
