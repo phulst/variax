@@ -103,6 +103,50 @@ TUNINGS = [
 ]
 
 
+# Messages Workbench HD uses (captured with USBPcap). Data comes as 4-bit
+# nibbles; a 24-bit word takes 6 nibbles, least significant nibble first.
+# A pitch offset is a signed 24-bit word where 2**23 is one octave.
+WORKBENCH_SYSEX = bytes.fromhex("F0 00 01 0C 07 05")
+SET_STRINGS_HEADER = WORKBENCH_SYSEX + bytes.fromhex("43 06 00 00 00 00 00 0C 01 04 00 00 00")
+READ_TUNING = 0x1B  # F0 00 01 0C 07 05 1B <slot 1-11> F7 -> six offsets + 18-character name
+ACK = 0x71          # F0 00 01 0C 07 05 71 F7, the guitar's reply to SET_STRINGS
+
+
+def encode24(value):
+    value &= 0xFFFFFF
+    return bytes((value >> (4 * i)) & 0x0F for i in range(6))
+
+
+def decode24(nibbles):
+    value = sum(n << (4 * i) for i, n in enumerate(nibbles[:6]))
+    return value - (1 << 24) if value & 0x800000 else value
+
+
+def set_strings_message(offsets):
+    """SysEx that sets the current model's per-string pitch offsets.
+
+    offsets: six semitone offsets from standard tuning, low E string first
+    (as tunings are written in the Pilot's Guide). Fractions are allowed.
+    """
+    if len(offsets) != 6:
+        raise ValueError("need six string offsets")
+    data = b"".join(encode24(round(semitones * (1 << 23) / 12)) for semitones in reversed(offsets))
+    return SET_STRINGS_HEADER + data + b"\xF7"
+
+
+def parse_tuning_reply(msg):
+    """Decode a READ_TUNING reply into (slot, name, offsets low E first), or None."""
+    if not msg.startswith(WORKBENCH_SYSEX) or len(msg) < 8 + 36 + 1 or msg[6] != READ_TUNING:
+        return None
+    body = msg[8:-1]
+    offsets = [decode24(body[i:i + 6]) * 12 / (1 << 23) for i in range(0, 36, 6)]
+    name = bytearray()
+    for i in range(36, len(body) - 5, 6):
+        n = body[i:i + 6]
+        name += bytes([n[4] | n[5] << 4, n[2] | n[3] << 4, n[0] | n[1] << 4])
+    return msg[7], name.decode("ascii", "replace").strip(), list(reversed(offsets))
+
+
 def program_to_position(program):
     """Return (knob_index 0..11, pickup position 1..5) for a program number."""
     return program // 5, 5 - program % 5

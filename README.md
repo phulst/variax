@@ -34,12 +34,16 @@ uv run send.py R-BILLY 3
 uv run send.py "C0 2C"               # raw MIDI message as hex
 uv run send.py volume 100            # volume 0-127 (CC7)
 uv run send.py spank 1 tone 64       # tone 0-127 (CC79), after the model change
+uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by name
+uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
 uv run send.py spank 1 "B0 07 50"    # several in order
 ```
 
 Banks: custom1, t-model, spank, lester, special, r-billy, chime, semi,
 jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
-Everything is sent on channel 1. A model change re-applies the tone knob's
+Tunings are set the way Workbench HD does it, as the current model's string
+offsets; `tuning` looks the name up among the 11 tunings stored on the knob.
+Everything else is sent on channel 1. A model change re-applies the tone knob's
 physical position, so send the tone after the model.
 
 ## Dump: `dump.py`
@@ -131,6 +135,26 @@ settings. The bank reply is plain ASCII ("U-SPANK"). Under the original
 Variax layout the fields up to `volume_dump` decode sensibly on the JTV (for
 Spank: capacitance 0.022, tone and volume pots 250); the tuning fields after
 them do not, so the JTV layout differs from byte 50 on.
+
+**Tunings (from a Workbench HD USB capture on Windows).** Workbench addresses
+the guitar as `F0 00 01 0C 07 05` (the guitar's own address; we send `07 00`).
+
+- Set the current model's string tuning:
+  `F0 00 01 0C 07 05 43 06 00 00 00 00 00 0C 01 04 00 00 00` + six 24-bit
+  pitch offsets, **high E string first** + `F7`. The guitar answers
+  `F0 00 01 0C 07 05 71 F7`. `jtv.set_strings_message()` rebuilds all eight
+  captured messages byte for byte.
+- Read tuning knob slot 1–11: `F0 00 01 0C 07 05 1B <slot> F7`. The reply has
+  the six offsets (high E first) and an 18-character name. Slots on this
+  guitar: STANDARD, DROP D, HALF DOWN, DROP Db, ONE DOWN, DADGAD, OPEN D,
+  BLUES, RESO, OPEN A, BARITONE (BARITONE holds −4 −2 −2 −2 −2 −2, not the
+  manual's −5 on every string).
+- A 24-bit value is sent as six 4-bit nibbles, least significant first. A
+  pitch offset is signed with 2²³ = one octave, so one semitone is 2²³/12.
+  Names use the same 3-bytes-in-6-nibbles packing as the model data.
+
+The `5E` tuning on/off SysEx from a Helix thread (for the Variax Acoustic 700)
+does nothing on the JTV.
 
 ## Powering the guitar
 

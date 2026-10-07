@@ -3,16 +3,22 @@
 Usage:
   uv run send.py lester 5              # select a model: bank name + pickup position 1-5
   uv run send.py R-BILLY 3             # bank names as in the Pilot's Guide, any case
-  uv run send.py "C0 2C"               # a raw MIDI message, as hex bytes
   uv run send.py volume 100            # volume 0-127 (CC7)
   uv run send.py spank 1 tone 64       # tone 0-127 (CC79); send it after the model,
                                        # because a model change re-applies the tone knob
-  uv run send.py spank 1 "B0 07 50"    # several, in order
+  uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by name
+  uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
+  uv run send.py "C0 2C"               # a raw MIDI message, as hex bytes
+  uv run send.py spank 1 tuning dadgad # several, in order
   uv run send.py --wait 5 lester 5     # listen 5 s after each message (default 2)
 
 Bank names: custom1, t-model, spank, lester, special, r-billy, chime, semi,
 jazzbox, acoustic, reso, custom2 (hyphens and spaces are optional). Pickup
 position 1 is the bridge, 5 the neck.
+
+Tunings are set the way Workbench HD sets them: as the current model's string
+offsets. The tuning names are read from the guitar (the 11 tunings on the
+tuning knob, STANDARD to BARITONE on a factory JTV-59).
 
 Does the same handshake as monitor.py first. Only send messages the guitar
 itself sends (see README.md); unknown SysEx could write to flash.
@@ -28,8 +34,15 @@ MIDI_CHANNEL = 1  # the channel the guitar reports on
 CONTROLLERS = {"volume": 7, "tone": 79}
 
 
+def _number(token):
+    try:
+        return float(token)
+    except ValueError:
+        return None
+
+
 def parse_messages(tokens):
-    """Turn command line tokens into MIDI messages: "<bank> <position>" pairs or hex messages."""
+    """Turn command line tokens into a list of MIDI messages and ("tuning", name) lookups."""
     messages = []
     tokens = list(tokens)
     while tokens:
@@ -47,17 +60,51 @@ def parse_messages(tokens):
                 raise ValueError("%s needs a value 0-127, e.g. \"%s 64\"" % (token, token))
             messages.append(bytes([0xB0 | (MIDI_CHANNEL - 1), cc, int(tokens.pop(0))]))
             continue
+        if token.lower() == "strings":
+            offsets = [_number(t) for t in tokens[:6]]
+            if len(offsets) < 6 or None in offsets or any(abs(o) > 12 for o in offsets):
+                raise ValueError("strings needs six semitone offsets, low E first, e.g. \"strings -2 0 0 0 0 0\"")
+            del tokens[:6]
+            messages.append(jtv.set_strings_message(offsets))
+            continue
+        if token.lower() == "tuning":
+            if not tokens:
+                raise ValueError("tuning needs a name, e.g. \"tuning drop-d\"")
+            messages.append(("tuning", tokens.pop(0)))
+            continue
         try:
             messages.append(bytes.fromhex(token))
         except ValueError:
-            raise ValueError("%r is not a model bank name, volume, tone or hex bytes" % token)
+            raise ValueError("%r is not a model bank name, volume, tone, strings, tuning or hex bytes" % token)
     return messages
+
+
+def read_tunings(link):
+    """Read the tunings stored on the tuning knob: {slot: (name, offsets low E first)}."""
+    tunings = {}
+    for slot in range(1, 12):
+        link.send(jtv.WORKBENCH_SYSEX + bytes([jtv.READ_TUNING, slot, 0xF7]), "read tuning %d" % slot)
+        for msg in link.listen(1.0, until=lambda m: jtv.parse_tuning_reply(m) is not None):
+            reply = jtv.parse_tuning_reply(msg)
+            if reply:
+                tunings[reply[0]] = (reply[1], reply[2])
+    return tunings
+
+
+def find_tuning(tunings, name):
+    wanted = "".join(c for c in name.lower() if c.isalnum())
+    for slot, (tuning_name, offsets) in sorted(tunings.items()):
+        if "".join(c for c in tuning_name.lower() if c.isalnum()) == wanted:
+            return tuning_name, offsets
+    known = ", ".join(n for n, _ in (tunings[s] for s in sorted(tunings)))
+    sys.exit("No tuning called %r on the guitar. It has: %s" % (name, known))
 
 
 def main():
     parser = argparse.ArgumentParser(description="Send MIDI messages to the Variax.")
     parser.add_argument("messages", nargs="+",
-                        help='a model ("lester 5"), "volume N", "tone N" or hex bytes of one MIDI message ("C0 2C")')
+                        help='a model ("lester 5"), "volume N", "tone N", "tuning NAME", '
+                             '"strings E A D G B E" offsets, or hex bytes of one MIDI message ("C0 2C")')
     parser.add_argument("--wait", type=float, default=2.0, help="seconds to listen after each message")
     args = parser.parse_args()
 
@@ -68,7 +115,13 @@ def main():
 
     with VariaxLink() as link:
         link.handshake()
+        tunings = None
         for msg in messages:
+            if isinstance(msg, tuple):
+                if tunings is None:
+                    tunings = read_tunings(link)
+                name, offsets = find_tuning(tunings, msg[1])
+                msg = jtv.set_strings_message(offsets)
             link.send(msg)
             link.listen(args.wait)
 

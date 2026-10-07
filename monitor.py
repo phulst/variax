@@ -103,6 +103,18 @@ def describe(msg):
             member = msg[10] | msg[11] << 7
             version = bytes(msg[12:16]).decode("ascii", "replace")
             return "identity reply: Line 6 family %d, member %d, firmware %s" % (family, member, version)
+        if msg.startswith(jtv.SET_STRINGS_HEADER) and len(msg) == len(jtv.SET_STRINGS_HEADER) + 37:
+            data = msg[len(jtv.SET_STRINGS_HEADER):-1]
+            offsets = [jtv.decode24(data[i:i + 6]) * 12 / (1 << 23) for i in range(0, 36, 6)][::-1]
+            return "set string tuning, low E first: %s" % " ".join("%+.2g" % o for o in offsets)
+        tuning = jtv.parse_tuning_reply(msg)
+        if tuning:
+            slot, name, offsets = tuning
+            return "tuning %d: %s  %s" % (slot, name, " ".join("%+.2g" % o for o in offsets))
+        if msg.startswith(jtv.WORKBENCH_SYSEX) and len(msg) == 9 and msg[6] == jtv.READ_TUNING:
+            return "read tuning %d" % msg[7]
+        if msg == jtv.WORKBENCH_SYSEX + bytes([jtv.ACK, 0xF7]):
+            return "acknowledged"
         if msg.startswith(LINE6_SYSEX_PREFIX):
             return "Line 6 SysEx"
         return "SysEx"
