@@ -67,6 +67,8 @@ class MidiParser:
                 if b == 0xF7:
                     messages.append(bytes(self.buf))
                     self.buf = bytearray()
+            elif b == 0xF7:  # end of a SysEx whose start we never saw, e.g. left over from a previous run
+                self.buf = bytearray()
             elif b & 0x80:
                 self.buf = bytearray([b])
                 self.running_status = b if b < 0xF0 else None

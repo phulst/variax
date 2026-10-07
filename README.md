@@ -42,7 +42,9 @@ uv run send.py spank 1 "B0 07 50"    # several in order
 Banks: custom1, t-model, spank, lester, special, r-billy, chime, semi,
 jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
 Tunings are set the way Workbench HD does it, as the current model's string
-offsets; `tuning` looks the name up among the 11 tunings stored on the knob.
+offsets, and are heard **only with the tuning knob on MODEL** (any other knob
+position plays the knob's own tuning). `tuning` looks the name up among the
+11 tunings stored on the knob.
 Everything else is sent on channel 1. A model change re-applies the tone knob's
 physical position, so send the tone after the model.
 
@@ -139,7 +141,8 @@ them do not, so the JTV layout differs from byte 50 on.
 **Tunings (from a Workbench HD USB capture on Windows).** Workbench addresses
 the guitar as `F0 00 01 0C 07 05` (the guitar's own address; we send `07 00`).
 
-- Set the current model's string tuning:
+- Set the current model's string tuning (heard when the tuning knob is on
+  MODEL; confirmed by ear with `strings -5 -5 -5 -5 -5 -5`):
   `F0 00 01 0C 07 05 43 06 00 00 00 00 00 0C 01 04 00 00 00` + six 24-bit
   pitch offsets, **high E string first** + `F7`. The guitar answers
   `F0 00 01 0C 07 05 71 F7`. `jtv.set_strings_message()` rebuilds all eight

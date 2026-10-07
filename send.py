@@ -17,8 +17,10 @@ jazzbox, acoustic, reso, custom2 (hyphens and spaces are optional). Pickup
 position 1 is the bridge, 5 the neck.
 
 Tunings are set the way Workbench HD sets them: as the current model's string
-offsets. The tuning names are read from the guitar (the 11 tunings on the
-tuning knob, STANDARD to BARITONE on a factory JTV-59).
+offsets. The guitar plays them when the tuning knob is on MODEL; any other knob
+position uses the knob's own tuning instead. The tuning names are read from
+the guitar (the 11 tunings on the tuning knob, STANDARD to BARITONE on a
+factory JTV-59).
 
 Does the same handshake as monitor.py first. Only send messages the guitar
 itself sends (see README.md); unknown SysEx could write to flash.
