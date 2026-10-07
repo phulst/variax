@@ -180,6 +180,15 @@ bits, captured on one model; writing it may reset other on/off settings.
 The `5E` tuning on/off SysEx from a Helix thread (for the Variax Acoustic 700)
 does nothing on the JTV.
 
+**Captures** (Wireshark JSON exports of USBPcap captures on Windows, in
+`captures/`):
+
+- `workbench-tunings.json`: Workbench reading the 11 knob tunings (`1B`) and
+  setting STANDARD, DROP D, HALF DOWN, DROP Db, ONE DOWN and DADGAD (`43`).
+- `workbench-tuning-toggle-parallel-pitch.json`: Tuning on/off three times,
+  then Parallel Pitch on/off twice with the settings in
+  `workbench-parallel-pitch-12string.png`.
+
 ## Powering the guitar
 
 With the Variax USB Interface (unlike a Helix or POD HD) the guitar runs on
