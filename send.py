@@ -22,6 +22,9 @@ Tunings are set the way Workbench HD sets them: as the current model's string
 offsets, followed by switching the model's tuning on (Workbench's Tuning
 button; with it off the offsets are ignored). The guitar plays them when the
 tuning knob is on MODEL; any other knob position uses the knob's own tuning.
+Like tone and 12string, a tuning only changes the guitar's working copy of the
+current model: a model change reloads the stored model, so send the tuning
+after the model ("lester 5 tuning dadgad"). Nothing is saved to the guitar.
 The 11 factory knob tunings are built in (jtv.KNOB_TUNINGS, also under the
 Pilot's Guide names such as "1/2 down"); any other name is looked up among the
 tunings stored on the guitar's knob, which takes about half a second.

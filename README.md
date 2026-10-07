@@ -160,6 +160,13 @@ the guitar as `F0 00 01 0C 07 05` (the guitar's own address; we send `07 00`).
   pitch offset is signed with 2²³ = one octave, so one semitone is 2²³/12.
   Names use the same 3-bytes-in-6-nibbles packing as the model data.
 
+**Writes are not saved.** Command 43 changes the guitar's working copy of
+the current model. Switching to another model and back reloads the stored
+model, with its stored tuning and Parallel Pitch. So send tuning and 12string
+after every model change (`send.py lester 5 tuning dadgad`); stored presets
+are never changed. Workbench's save step (writing to the guitar's storage)
+has not been captured.
+
 **Command 43 is a generic write** (from a second capture, toggling Tuning
 and Parallel Pitch in Workbench):
 `F0 00 01 0C 07 05 43 <word count> <word address> <words> F7`, each of the
