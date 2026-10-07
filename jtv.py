@@ -189,6 +189,11 @@ def set_strings_message(offsets):
     return write_message(STRINGS_ADDRESS, [round(s * (1 << 23) / 12) for s in reversed(offsets)])
 
 
+def tuning_enable_message(on=True):
+    """SysEx for Workbench's Tuning on/off button: whether the model's string tuning is used."""
+    return write_message(TUNING_ENABLE_ADDRESS, [1 if on else 0])
+
+
 def twelve_string_messages(on=True):
     """Messages that turn the 12-string Parallel Pitch on (settings, then flag) or off."""
     if not on:

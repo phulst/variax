@@ -36,6 +36,7 @@ uv run send.py volume 100            # volume 0-127 (CC7)
 uv run send.py spank 1 tone 64       # tone 0-127 (CC79), after the model change
 uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by name
 uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
+uv run send.py tuning off            # stop using the model's tuning
 uv run send.py 12string              # 12-string sound; "12string off" to stop
 uv run send.py spank 1 "B0 07 50"    # several in order
 ```
@@ -43,7 +44,8 @@ uv run send.py spank 1 "B0 07 50"    # several in order
 Banks: custom1, t-model, spank, lester, special, r-billy, chime, semi,
 jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
 Tunings are set the way Workbench HD does it, as the current model's string
-offsets, and are heard **only with the tuning knob on MODEL** (any other knob
+offsets plus switching the model's tuning on (address `0x422`; while it is
+off, written offsets are ignored), and are heard **only with the tuning knob on MODEL** (any other knob
 position plays the knob's own tuning). `tuning` looks the name up among the
 11 tunings stored on the knob.
 Everything else is sent on channel 1. A model change re-applies the tone knob's

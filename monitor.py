@@ -111,6 +111,8 @@ def describe(msg):
             if address == jtv.STRINGS_ADDRESS and len(words) == 6:
                 offsets = [w * 12 / (1 << 23) for w in reversed(words)]
                 return "set string tuning, low E first: %s" % " ".join("%+.2g" % o for o in offsets)
+            if address == jtv.TUNING_ENABLE_ADDRESS and len(words) == 1:
+                return "tuning %s (model's string tuning used or not)" % ("on" if words[0] else "off")
             if address == jtv.FLAGS_ADDRESS and len(words) == 1:
                 state = {jtv.FLAGS_PARALLEL_PITCH_ON: ", parallel pitch on",
                          jtv.FLAGS_PARALLEL_PITCH_OFF: ", parallel pitch off"}.get(words[0] & 0xFFFFFF, "")

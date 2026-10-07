@@ -7,6 +7,7 @@ Usage:
   uv run send.py spank 1 tone 64       # tone 0-127 (CC79); send it after the model,
                                        # because a model change re-applies the tone knob
   uv run send.py tuning drop-d         # a tuning stored on the tuning knob, by name
+  uv run send.py tuning off            # stop using the model's tuning (Workbench's Tuning button)
   uv run send.py strings -2 0 0 0 0 0  # any tuning: semitones per string, low E first
   uv run send.py 12string              # 12-string sound (Parallel Pitch); "12string off" to stop
   uv run send.py "C0 2C"               # a raw MIDI message, as hex bytes
@@ -18,7 +19,9 @@ jazzbox, acoustic, reso, custom2 (hyphens and spaces are optional). Pickup
 position 1 is the bridge, 5 the neck.
 
 Tunings are set the way Workbench HD sets them: as the current model's string
-offsets. The guitar plays them when the tuning knob is on MODEL; any other knob
+offsets, followed by switching the model's tuning on (Workbench's Tuning
+button; with it off the offsets are ignored). The guitar plays them when the
+tuning knob is on MODEL; any other knob
 position uses the knob's own tuning instead. The tuning names are read from
 the guitar (the 11 tunings on the tuning knob, STANDARD to BARITONE on a
 factory JTV-59).
@@ -68,7 +71,7 @@ def parse_messages(tokens):
             if len(offsets) < 6 or None in offsets or any(abs(o) > 12 for o in offsets):
                 raise ValueError("strings needs six semitone offsets, low E first, e.g. \"strings -2 0 0 0 0 0\"")
             del tokens[:6]
-            messages.append(jtv.set_strings_message(offsets))
+            messages += [jtv.set_strings_message(offsets), jtv.tuning_enable_message(True)]
             continue
         if token.lower().replace("-", "") in ("12string", "twelvestring"):
             on = True
@@ -79,7 +82,11 @@ def parse_messages(tokens):
         if token.lower() == "tuning":
             if not tokens:
                 raise ValueError("tuning needs a name, e.g. \"tuning drop-d\"")
-            messages.append(("tuning", tokens.pop(0)))
+            name = tokens.pop(0)
+            if name.lower() == "off":
+                messages.append(jtv.tuning_enable_message(False))
+            else:
+                messages += [("tuning", name), jtv.tuning_enable_message(True)]
             continue
         try:
             messages.append(bytes.fromhex(token))
