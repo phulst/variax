@@ -13,3 +13,6 @@ wheels/
 
 # Saved with `variax tunings --save`: your own guitar's tunings
 tunings.json
+
+# Your own `variax midi` settings (create with `variax midi --write-config`)
+variax.toml

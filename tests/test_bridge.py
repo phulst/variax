@@ -246,10 +246,3 @@ def test_default_config_file_matches_the_defaults():
 def test_config_errors(settings, message):
     with pytest.raises(configuration.ConfigError, match=message):
         configuration.validate(settings)
-
-
-def test_example_config_matches_the_packaged_defaults():
-    from pathlib import Path
-    example = Path(__file__).parent.parent / "variax.toml"
-    if example.exists():
-        assert example.read_text() == configuration.default_config_text()
