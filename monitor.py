@@ -36,10 +36,10 @@ IDENTITY_REPLY_PREFIX = bytes([0xF0, 0x7E, 0x7F, 0x06, 0x02, 0x00, 0x01, 0x0C])
 ACTIVATE = bytes([0xF0, 0x00, 0x01, 0x0C, 0x07, 0x00, 0x2A, 0x01, 0xF7])
 LINE6_SYSEX_PREFIX = bytes([0xF0, 0x00, 0x01, 0x0C])
 
-# Observed on a JTV (firmware 0223). The meanings are guesses from one capture.
+# Names from the old Linux staging driver (drivers/staging/line6/control.h, VARIAXMIDI_*).
 CC_NAMES = {
     0x07: "volume; ramps 64 to 127 at power-on",
-    0x4F: "sent after every program change; per program, maybe its output level",
+    0x4F: "tone; sent after every program change with the tone stored for that model",
 }
 
 

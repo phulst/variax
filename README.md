@@ -62,8 +62,8 @@ handshake comes from.
 
 | Control | Message | Notes |
 |---|---|---|
-| Model knob | Program Change, steps of 5 (4, 9, … 59 for Custom 1 … Custom 2) | followed by CC79 |
-| Pickup selector | Program Change within a group of 5 (40, 42, 44) | followed by CC79 |
+| Model knob | Program Change, steps of 5 (4, 9, … 59 for Custom 1 … Custom 2) | followed by CC79 (tone) |
+| Pickup selector | Program Change within a group of 5 (40, 42, 44) | followed by CC79 (tone) |
 | Tuning knob | CC84 = position − 1 (0–11, 12 positions) | |
 | Tuning-knob push (white, then blue light) | `FF` (reset), then Program Change and CC79 | on a JTV-59 this toggles the 3-way selector between models 1-3-5 and 2-3-4 |
 | Power-on | CC7 (volume) ramping 64 → 127 in ~60 ms | a fade-in, not the volume knob; the same whether the light comes on white or blue (the guitar keeps the last state) |
@@ -90,13 +90,16 @@ All model and tuning names were checked by ear on a JTV-59 against what
 
 [jtv.py](jtv.py) has the model and tuning names; `monitor.py` prints them.
 
-CC79 follows every program change and its value belongs to the program:
+CC7 is volume and CC79 is tone (`VARIAXMIDI_volume` and `VARIAXMIDI_tone` in
+the old Linux staging driver, `drivers/staging/line6/control.h` in v2.6.32).
+CC79 follows every program change with the tone stored for that model:
 usually 127, but 51 for programs 2 (Custom 1, position 3) and 45 (Acoustic 5,
-J-200) and 108 for program 47 (Acoustic 3, O-18). Best guess: the model's
-output level, which the Pilot's Guide says depends on the modeled instrument.
+J-200) and 108 for program 47 (Acoustic 3, O-18). On acoustic models the tone
+knob moves a modeled microphone.
 
-The guitar accepts Program Change to select a model (send.py). Unconfirmed:
-what CC79 really is.
+The guitar accepts Program Change on channel 1 to select a model (the old
+driver sent it the same way). Sending CC84 does not change the tuning; CC84
+only reports the tuning knob.
 
 The Helix controls the Variax on its own MIDI channel 16, but that is the
 Helix's side; on the VDI/USB side the guitar uses channel 1.
