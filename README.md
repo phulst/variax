@@ -232,3 +232,21 @@ handshake but messages sent to the guitar do nothing.
 
 Only send messages that we have seen the guitar or Workbench use. Large SysEx
 transfers are probably flash or firmware writes.
+
+## References
+
+- [Line 6 VDI Interface](https://www.vguitarforums.com/smf/index.php?topic=13484.0),
+  VGuitar Forums: community discussion of the VDI interface.
+- Linux kernel driver for the Variax USB Interface:
+  [`sound/usb/line6/variax.c`](https://github.com/torvalds/linux/blob/master/sound/usb/line6/variax.c)
+  (handshake), and the older staging driver
+  [`drivers/staging/line6/`](https://github.com/torvalds/linux/tree/v2.6.32/drivers/staging/line6)
+  in Linux 2.6.32 (model and bank requests, CC7/CC79, model data layout).
+- "Variax MIDI reference" spreadsheet (community reverse engineering of VDI
+  traffic; on-the-fly tuning credited to Joe Bear).
+- [Helix / Variax Acoustic 700 MIDI information](https://line6.com/support/topic/65841-helix-variax-acoustic-700-midi-information/),
+  Line 6 Community: the `5E` tuning SysEx (no effect on the JTV).
+- [Controlling JTV guitar models and settings via MIDI](https://line6.com/support/topic/60167-controlling-jtv-guitar-models-and-settings-via-midi/),
+  Line 6 Community.
+- James Tyler Variax Pilot's Guide (Line 6): model banks, pickup numbering,
+  factory tunings.
