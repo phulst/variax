@@ -215,6 +215,34 @@ def parse_tuning_reply(msg):
     return msg[7], name.decode("ascii", "replace").strip(), list(reversed(offsets))
 
 
+# The tunings stored on the tuning knob (slots 1-11), as read from a JTV-59
+# with the READ_TUNING request: semitones per string, low E first. Matches the
+# Pilot's Guide table except BARITONE, which the guitar stores as -4 -2 -2 -2 -2 -2.
+KNOB_TUNINGS = {
+    "STANDARD": [0, 0, 0, 0, 0, 0],
+    "DROP D": [-2, 0, 0, 0, 0, 0],
+    "HALF DOWN": [-1, -1, -1, -1, -1, -1],
+    "DROP Db": [-3, -1, -1, -1, -1, -1],
+    "ONE DOWN": [-2, -2, -2, -2, -2, -2],
+    "DADGAD": [-2, 0, 0, 0, -2, -2],
+    "OPEN D": [-2, 0, 0, -1, -2, -2],
+    "BLUES": [-2, -2, 0, 0, 0, -2],
+    "RESO": [3, 2, 0, 0, 0, -2],
+    "OPEN A": [0, 0, -1, -3, -2, 0],
+    "BARITONE": [-4, -2, -2, -2, -2, -2],
+}
+# Names the Pilot's Guide uses for the same tunings.
+TUNING_ALIASES = {"1/2 DOWN": "HALF DOWN", "1 DOWN": "ONE DOWN", "BLUES G": "BLUES", "RESO G": "RESO"}
+
+
+def find_knob_tuning(name):
+    """(name, offsets low E first) of a factory knob tuning, matched loosely; None if unknown."""
+    names = {_normalize(n): n for n in KNOB_TUNINGS}
+    names.update({_normalize(alias): n for alias, n in TUNING_ALIASES.items()})
+    found = names.get(_normalize(name))
+    return (found, KNOB_TUNINGS[found]) if found else None
+
+
 def program_to_position(program):
     """Return (knob_index 0..11, pickup position 1..5) for a program number."""
     return program // 5, 5 - program % 5

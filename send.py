@@ -12,7 +12,7 @@ Usage:
   uv run send.py 12string              # 12-string sound (Parallel Pitch); "12string off" to stop
   uv run send.py "C0 2C"               # a raw MIDI message, as hex bytes
   uv run send.py spank 1 tuning dadgad # several, in order
-  uv run send.py --wait 5 lester 5     # listen 5 s after each message (default 2)
+  uv run send.py --wait 5 lester 5     # listen 5 s after each message (default 0.5)
 
 Bank names: custom1, t-model, spank, lester, special, r-billy, chime, semi,
 jazzbox, acoustic, reso, custom2 (hyphens and spaces are optional). Pickup
@@ -21,10 +21,10 @@ position 1 is the bridge, 5 the neck.
 Tunings are set the way Workbench HD sets them: as the current model's string
 offsets, followed by switching the model's tuning on (Workbench's Tuning
 button; with it off the offsets are ignored). The guitar plays them when the
-tuning knob is on MODEL; any other knob
-position uses the knob's own tuning instead. The tuning names are read from
-the guitar (the 11 tunings on the tuning knob, STANDARD to BARITONE on a
-factory JTV-59).
+tuning knob is on MODEL; any other knob position uses the knob's own tuning.
+The 11 factory knob tunings are built in (jtv.KNOB_TUNINGS, also under the
+Pilot's Guide names such as "1/2 down"); any other name is looked up among the
+tunings stored on the guitar's knob, which takes about half a second.
 
 Does the same handshake as monitor.py first. Only send messages the guitar
 itself sends (see README.md); unknown SysEx could write to flash.
@@ -86,7 +86,10 @@ def parse_messages(tokens):
             if name.lower() == "off":
                 messages.append(jtv.tuning_enable_message(False))
             else:
-                messages += [("tuning", name), jtv.tuning_enable_message(True)]
+                known = jtv.find_knob_tuning(name)
+                # Factory knob tunings are built in; other names are looked up on the guitar.
+                messages += [jtv.set_strings_message(known[1]) if known else ("tuning", name),
+                             jtv.tuning_enable_message(True)]
             continue
         try:
             messages.append(bytes.fromhex(token))
@@ -122,7 +125,7 @@ def main():
                         help='a model ("lester 5"), "volume N", "tone N", "tuning NAME", '
                              '"strings E A D G B E" offsets, "12string [on|off]", '
                              'or hex bytes of one MIDI message ("C0 2C")')
-    parser.add_argument("--wait", type=float, default=2.0, help="seconds to listen after each message")
+    parser.add_argument("--wait", type=float, default=0.5, help="seconds to listen after each message")
     args = parser.parse_args()
 
     try:

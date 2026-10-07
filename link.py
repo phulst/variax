@@ -47,7 +47,7 @@ class VariaxLink:
         for _ in range(10):
             self.send(IDENTITY_REQUEST, "identity request")
             is_reply = lambda m: m.startswith(IDENTITY_REPLY_PREFIX)
-            if any(is_reply(m) for m in self.listen(1.0, until=is_reply)):
+            if any(is_reply(m) for m in self.listen(0.3, until=is_reply)):
                 break
         else:
             sys.exit("No answer from the Variax USB Interface (it answers the identity request even with the guitar off).")

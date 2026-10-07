@@ -46,8 +46,9 @@ jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
 Tunings are set the way Workbench HD does it, as the current model's string
 offsets plus switching the model's tuning on (address `0x422`; while it is
 off, written offsets are ignored), and are heard **only with the tuning knob on MODEL** (any other knob
-position plays the knob's own tuning). `tuning` looks the name up among the
-11 tunings stored on the knob.
+position plays the knob's own tuning). The 11 factory knob tunings are built
+in (`jtv.KNOB_TUNINGS`, also under the Pilot's Guide names such as "1/2 down");
+other names are looked up among the tunings stored on the guitar's knob.
 Everything else is sent on channel 1. A model change re-applies the tone knob's
 physical position, so send the tone after the model.
 
