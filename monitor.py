@@ -137,7 +137,12 @@ def open_interface():
         configured = False
     if not configured:
         dev.set_configuration(1)
-    usb.util.claim_interface(dev, 0)
+    try:
+        usb.util.claim_interface(dev, 0)
+    except usb.core.USBError as e:
+        if e.errno == 13:
+            sys.exit("The interface is in use by another program (monitor.py or send.py?). Stop it first.")
+        raise
     dev.set_interface_altsetting(interface=0, alternate_setting=1)  # alt 1 has the endpoints
     return dev
 
@@ -186,7 +191,7 @@ def main():
                 if answered:
                     break
             else:
-                sys.exit("No answer from the guitar. Is it connected to the interface and powered on?")
+                sys.exit("No answer from the Variax USB Interface (it answers the identity request even with the guitar off).")
             time.sleep(0.1)
             send(ACTIVATE, "activate")
 

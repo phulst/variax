@@ -112,6 +112,19 @@ def position_to_program(knob_index, pickup_position):
     return knob_index * 5 + (5 - pickup_position)
 
 
+def _normalize(name):
+    return "".join(c for c in name.lower() if c.isalnum())
+
+
+def bank_index(name):
+    """Knob index for a bank name ("Lester", "r-billy", "TMODEL", "custom1"), or None."""
+    wanted = _normalize(name)
+    for index, (bank, _) in enumerate(BANKS):
+        if _normalize(bank) == wanted:
+            return index
+    return None
+
+
 def describe_program(program):
     knob_index, position = program_to_position(program)
     if knob_index >= len(BANKS):

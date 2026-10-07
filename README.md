@@ -22,6 +22,23 @@ uv run monitor.py --no-handshake  # listen only (the guitar stays silent)
 uv run monitor.py --seconds 30    # stop after 30 seconds
 ```
 
+## Send: `send.py`
+
+Selects a model by name, or sends raw MIDI messages, then prints what comes
+back. Only one script can use the interface at a time, so stop `monitor.py`
+first.
+
+```bash
+uv run send.py lester 5              # bank name (any case, hyphen optional) + pickup position 1-5
+uv run send.py R-BILLY 3
+uv run send.py "C0 2C"               # raw MIDI message as hex
+uv run send.py spank 1 "B0 54 03"    # several in order: Spank 1, then tuning 1/2 DOWN
+```
+
+Banks: custom1, t-model, spank, lester, special, r-billy, chime, semi,
+jazzbox, acoustic, reso, custom2. Pickup position 1 is the bridge, 5 the neck.
+Program changes are sent on channel 1.
+
 ## What we know
 
 **The interface.** USB `0e41:534d`, vendor-specific class, so macOS never shows
@@ -33,9 +50,10 @@ handshake comes from.
 
 **Handshake.**
 
-1. Send `F0 7E 7F 06 01 F7` (Universal Identity Request) until the guitar
-   answers `F0 7E 7F 06 02 00 01 0C 07 00 05 00 30 32 32 33 F7`
-   (Line 6, family 7, member 5, firmware "0223").
+1. Send `F0 7E 7F 06 01 F7` (Universal Identity Request) until it answers
+   `F0 7E 7F 06 02 00 01 0C 07 00 05 00 30 32 32 33 F7`
+   (Line 6, family 7, member 5, firmware "0223"). The interface answers this
+   itself, even with the guitar switched off.
 2. Send `F0 00 01 0C 07 00 2A 01 F7` (activate). Before this the guitar sends
    nothing. The activation survives switching the guitar off and on; not yet
    tested whether it survives unplugging the USB interface.
@@ -77,11 +95,18 @@ usually 127, but 51 for programs 2 (Custom 1, position 3) and 45 (Acoustic 5,
 J-200) and 108 for program 47 (Acoustic 3, O-18). Best guess: the model's
 output level, which the Pilot's Guide says depends on the modeled instrument.
 
-Unconfirmed: what CC79 really is, and whether the guitar accepts the same
-messages to change model and tuning.
+The guitar accepts Program Change to select a model (send.py). Unconfirmed:
+what CC79 really is.
 
 The Helix controls the Variax on its own MIDI channel 16, but that is the
 Helix's side; on the VDI/USB side the guitar uses channel 1.
+
+## Powering the guitar
+
+With the Variax USB Interface (unlike a Helix or POD HD) the guitar runs on
+its battery, and the electronics only switch on with a 1/4" cable plugged into
+the guitar's output jack. Without that, the interface still answers the
+handshake but messages sent to the guitar do nothing.
 
 ## Caution
 
