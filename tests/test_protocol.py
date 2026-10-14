@@ -138,4 +138,4 @@ def test_describe():
     assert protocol.describe(bytes.fromhex("C0 2C")).endswith("Jazzbox 1: 1954 ES-175, bridge")
     assert "firmware 0223" in protocol.describe(bytes.fromhex("F0 7E 7F 06 02 00 01 0C 07 00 05 00 30 32 32 33 F7"))
     assert protocol.describe(protocol.ACK_MESSAGE) == "acknowledged"
-    assert protocol.describe(protocol.MAGNETIC_MESSAGE) == "magnetic pickups"
+    assert protocol.describe(protocol.MAGNETIC_MESSAGE) == "modeling off (magnetic pickups)"

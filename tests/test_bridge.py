@@ -152,7 +152,7 @@ def test_only_the_last_value_of_a_cc_in_a_batch_is_sent():
     assert link.sent == [protocol.control_change(7, 30), protocol.control_change(79, 5)]
 
 
-def test_twelve_string_and_pickups():
+def test_twelve_string_and_modeling():
     bridge, link, _, _ = make(flags=0x011BEF)
     bridge.handle_app([cc(85, 127)])
     assert link.sent == protocol.twelve_string_messages(True, flags=0x011BEF)
@@ -174,7 +174,7 @@ PATCHES = {
     "midi": {"program_change": "patches"},
     "patch": {
         "1": {"model": "lester 5", "tuning": "dadgad", "tone": 90},
-        "2": {"program": 60, "strings": "E B E G# B E", "twelve_string": True, "pickups": "modeling"},
+        "2": {"program": 60, "strings": "E B E G# B E", "twelve_string": True, "modeling": True},
         "3": {"tuning": "none"},
         "4": {"tuning": "drop d"},
     },

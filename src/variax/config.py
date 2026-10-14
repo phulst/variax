@@ -25,7 +25,7 @@ DEFAULTS = {
         "tone": 79,
         "tuning": 84,
         "twelve_string": 85,
-        "pickups": 86,
+        "modeling": 86,
         "string_semitones": [20, 21, 22, 23, 24, 25],
         "string_cents": [26, 27, 28, 29, 30, 31],
     },
@@ -37,7 +37,7 @@ DEFAULTS = {
     "patch": {},
 }
 
-PATCH_FIELDS = {"model", "program", "volume", "tone", "tuning", "strings", "twelve_string", "pickups"}
+PATCH_FIELDS = {"model", "program", "volume", "tone", "tuning", "strings", "twelve_string", "modeling"}
 
 
 class ConfigError(ValueError):
@@ -155,8 +155,9 @@ def _validate_patch(key, patch, keep):
                 _check_offsets(known[1], keep, where)
         if "twelve_string" in patch:
             _check(isinstance(patch["twelve_string"], bool), "%s: twelve_string must be true or false" % where)
-        if "pickups" in patch:
-            _check(patch["pickups"] in ("magnetic", "modeling"), '%s: pickups must be "magnetic" or "modeling"' % where)
+        if "modeling" in patch:
+            _check(isinstance(patch["modeling"], bool),
+                   "%s: modeling must be true or false (false: the magnetic pickups)" % where)
     except ValueError as e:
         if isinstance(e, ConfigError):
             raise

@@ -15,7 +15,7 @@ def run(*args):
 
 def test_send_order_is_fixed():
     # tone and tuning go after the model change that would reset them, whatever the option order
-    messages = plan_send(program=18, tone=64, volume=100, tuning="dadgad", twelve_string="on", pickups="modeling")
+    messages = plan_send(program=18, tone=64, volume=100, tuning="dadgad", twelve_string=True, modeling=True)
     assert messages[0] == protocol.MODELING_MESSAGE
     assert messages[1] == protocol.program_change(18)
     assert messages[2] == protocol.control_change(protocol.VOLUME_CC, 100)
@@ -116,3 +116,14 @@ def test_midi_write_config(tmp_path, monkeypatch):
     assert configuration.load("variax.toml", required=True) == configuration.DEFAULTS
     result = run("midi", "--write-config")
     assert result.exit_code != 0 and "already exists" in result.output
+
+
+def test_on_off_values():
+    for value in ("on", "yes", "TRUE", "On"):
+        result = run("send", "--modeling", value, "--dry-run")
+        assert result.exit_code == 0 and "modeling on" in result.output
+    for value in ("off", "no", "false"):
+        result = run("send", "--modelling", value, "--twelve-string", value, "--dry-run")
+        assert result.exit_code == 0 and "modeling off (magnetic pickups)" in result.output
+        assert "12-string off" in result.output
+    assert "is not on or off" in run("send", "--modeling", "magnetic").output

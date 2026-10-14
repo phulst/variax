@@ -165,9 +165,9 @@ them):
   then Parallel Pitch on/off twice with the settings in
   `workbench-parallel-pitch-12string.png`.
 
-**Community reference.** A spreadsheet, "Variax MIDI reference"
-([`references/`](../references/); reverse engineered from VDI traffic;
-on-the-fly tuning credited to Joe Bear), agrees
+**Community reference.** A spreadsheet, "Variax MIDI reference" (reverse
+engineered from VDI traffic; on-the-fly tuning credited to Joe Bear; the
+message `variax send --keep` uses), agrees
 with the findings above: channel 1, CC7/CC79, the program numbering, CC84 as
 send-only, the activate message ("SendModus", `F0 00 01 0C 07 00 2A F7`) and
 the tuning on/off write. It adds, all implemented in `variax send`:

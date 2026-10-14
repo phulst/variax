@@ -26,7 +26,7 @@ tone = 79                     # 0-127
 tuning = 84                   # 0 = none (strings as physically tuned), 1-11 = the tuning
                               # knob's tunings, 12 and up = [tunings] below
 twelve_string = 85            # 0-63 off, 64-127 on
-pickups = 86                  # 0-63 magnetic, 64-127 modeling
+modeling = 86                 # 0-63 off (the magnetic pickups), 64-127 on
 
 # Per-string tuning: each string's offset from standard tuning, as a coarse
 # value in semitones plus a fine value in cents. Low E string first.
@@ -60,7 +60,8 @@ reapply_tuning_after_model = true   # only with program_change = "models" and tu
 # Patches, used with program_change = "patches": Program Change N applies
 # [patch.N]. Fields are the same as for `variax send`: model (a name) or
 # program (a number), volume, tone, tuning or strings, twelve_string and
-# pickups. The model is sent first; anything left out stays as it is.
+# modeling (true or false). The model is sent first; anything left out stays
+# as it is.
 #
 # [patch.1]
 # model = "lester 5"

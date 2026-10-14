@@ -9,7 +9,9 @@ the working copy) and one request for the bank name.
 import struct
 
 from .interface import VariaxError
-from .protocol import VARIAX_SYSEX, read_message
+from . import jtv
+from .protocol import (FLAGS_ADDRESS, PARALLEL_PITCH_BITS, STRINGS_ADDRESS, TUNING_ENABLE_ADDRESS, VARIAX_SYSEX,
+                       read_message)
 
 # Two reads of 32 words (the driver's requests are exactly these): words
 # 0x353-0x358 hold the name, the rest the settings.
@@ -54,7 +56,8 @@ def float24(data):
 
 
 def read_model(link):
-    """Read the current model: {"name", "bank", "control" (hex of the 156 setting bytes)}."""
+    """Read the current model (the working copy): {"name", "bank", "control" (hex of the 156 setting
+    bytes), "tuning" (semitones per string, low E first), "tuning_on", "twelve_string", "flags"}."""
     replies = []
     for request in (REQUEST_MODEL_1, REQUEST_MODEL_2):
         link.send(request)
@@ -67,16 +70,33 @@ def read_model(link):
     msgs = link.listen(2.0, until=lambda m: is_reply(m, BANK_NAME))
     bank = next((m for m in msgs if is_reply(m, BANK_NAME)), None)
     first, second = replies
+    # the tuning and the on/off flags are outside the model data block, at their own addresses
+    tuning = [w * 12 / (1 << 23) for w in reversed(link.read_words(STRINGS_ADDRESS, 6))]
+    tuning_on = link.read_words(TUNING_ENABLE_ADDRESS, 1)[0]
+    flags = link.read_words(FLAGS_ADDRESS, 1)[0] & 0xFFFFFF
     return {
         "name": first[:NAME_LENGTH].decode("ascii", "replace").strip(),
         "bank": bank[7:-1].replace(b"\0", b" ").decode("ascii", "replace").strip() if bank else "",
         "control": (first[NAME_LENGTH:NAME_LENGTH + CONTROL_HALF] + second[:CONTROL_HALF]).hex(),
+        "tuning": [round(o, 4) for o in tuning],
+        "tuning_on": bool(tuning_on),
+        "twelve_string": bool(flags & PARALLEL_PITCH_BITS),
+        "flags": "0x%06X" % flags,
     }
 
 
 def format_model(model):
     control = bytes.fromhex(model["control"])
-    lines = ["model: %s    bank: %s" % (model["name"], model["bank"]), "", "fields (original Variax layout):"]
+    lines = ["model: %s    bank: %s" % (model["name"], model["bank"])]
+    if "tuning" in model:
+        lines += [
+            "tuning: %s, %s  (%s)" % ("on" if model["tuning_on"] else "off",
+                                      " ".join("%+.2g" % o for o in model["tuning"]),
+                                      jtv.format_strings(model["tuning"])),
+            "        (the model's own tuning, low E first; heard with the tuning knob on MODEL when on)",
+            "12-string: %s    flags: %s" % ("on" if model["twelve_string"] else "off", model["flags"]),
+        ]
+    lines += ["", "fields (original Variax layout):"]
     for name, offset, kind in FIELDS:
         if kind == "float":
             lines.append("  %3d  %-18s %.4g" % (offset, name, float24(control[offset:offset + 3])))
@@ -91,8 +111,11 @@ def format_model(model):
 def format_diff(old, new):
     a, b = bytes.fromhex(old["control"]), bytes.fromhex(new["control"])
     lines = ["diff against %s / %s:" % (old["name"], old["bank"])]
+    for key in ("tuning", "tuning_on", "twelve_string", "flags"):
+        if key in old and key in new and old[key] != new[key]:
+            lines.append("  %s: %s -> %s" % (key, old[key], new[key]))
     changed = [i for i in range(min(len(a), len(b))) if a[i] != b[i]]
-    if not changed:
+    if not changed and len(lines) == 1:
         lines.append("  no differences")
     for i in changed:
         lines.append("  %3d  %02x -> %02x   (%d -> %d)" % (i, a[i], b[i], a[i], b[i]))

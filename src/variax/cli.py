@@ -38,6 +38,23 @@ def _traffic_logger(raw=False, knob_tunings=None):
     return log
 
 
+class _OnOff(click.ParamType):
+    """on/off, also accepting yes/no and true/false."""
+    name = "on|off"
+    VALUES = {"on": True, "yes": True, "true": True, "off": False, "no": False, "false": False}
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, bool):
+            return value
+        result = self.VALUES.get(str(value).strip().lower())
+        if result is None:
+            self.fail("%r is not on or off (yes/no and true/false work too)" % value, param, ctx)
+        return result
+
+
+ON_OFF = _OnOff()
+
+
 def parse_strings(ctx, param, text):
     """Click callback: six strings, low E first, as semitone offsets or notes (see jtv.parse_tuning_text)."""
     if text is None:
@@ -71,17 +88,18 @@ def main():
 @click.option("--keep", is_flag=True,
               help="Keep the tuning through model changes, until the tuning knob is turned. Works with the "
                    "tuning knob in any position, but whole semitones only (uses the on-the-fly tuning SysEx).")
-@click.option("--twelve-string", type=click.Choice(["on", "off"]), help="12-string sound (Parallel Pitch).")
-@click.option("--pickups", type=click.Choice(["magnetic", "modeling"]), help="Magnetic pickups or modeling.")
+@click.option("--twelve-string", type=ON_OFF, help="12-string sound (Parallel Pitch): on or off.")
+@click.option("--modeling", "--modelling", "modeling", type=ON_OFF,
+              help="Modeling on, or off for the magnetic pickups (like pushing the model knob).")
 @click.option("--raw", multiple=True, metavar="HEX", help="A raw MIDI message as hex, e.g. 'C0 2C'. Repeatable; sent last.")
 @click.option("--wait", type=float, default=0.0, show_default=True, help="Seconds to keep listening at the end.")
 @click.option("--dry-run", is_flag=True, help="Print the messages without sending them.")
 @click.option("-v", "--verbose", is_flag=True, help="Print all MIDI traffic.")
-def send(program, name, volume, tone, tuning, strings, keep, twelve_string, pickups, raw, wait, dry_run,
+def send(program, name, volume, tone, tuning, strings, keep, twelve_string, modeling, raw, wait, dry_run,
          verbose):
     """Select a model and set volume, tone, tuning and 12-string.
 
-    Messages go out in a fixed order (pickups, model, volume, tone, tuning,
+    Messages go out in a fixed order (modeling, model, volume, tone, tuning,
     12-string, raw), so tone and tuning always follow the model change that
     would otherwise reset them. Nothing is saved to the guitar.
 
@@ -107,7 +125,7 @@ def send(program, name, volume, tone, tuning, strings, keep, twelve_string, pick
     if tuning is not None and strings is not None:
         raise click.UsageError("use either --tuning or --strings, not both")
     try:
-        messages = plan_send(program, name, volume, tone, tuning, strings, keep, twelve_string, pickups, raw)
+        messages = plan_send(program, name, volume, tone, tuning, strings, keep, twelve_string, modeling, raw)
     except ValueError as e:
         raise click.UsageError(str(e))
     if not messages:

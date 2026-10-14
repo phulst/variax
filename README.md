@@ -4,6 +4,14 @@ Command line control for Line 6 James Tyler Variax (JTV) guitars through the
 Line 6 Variax USB Interface: select models, set volume, tone and any tuning,
 switch on a 12-string sound, and watch what the guitar's knobs send.
 
+**It also works as a MIDI bridge.** Together with the Variax USB Interface,
+`variax midi` lets any MIDI device or app (a guitar effects processor, a MIDI
+foot controller, MainStage or a DAW) change the guitar's model and tuning,
+for example on every patch change. Until now that needed a Line 6 Helix, POD
+HD or another device with a VDI jack; now a Mac running `variax` and the USB
+interface the guitar came with are enough. See
+[Control from MainStage, a DAW or a MIDI controller](#control-from-mainstage-a-daw-or-a-midi-controller).
+
 Line 6 has retired the Variax line, including the USB interface and its
 software. This is an unofficial community project to keep these guitars
 useful. It is not affiliated with or endorsed by Line 6 or Yamaha.
@@ -31,6 +39,13 @@ pip install variax
 or with [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/):
 `uv tool install variax`, `pipx install variax`.
 
+From a clone of this repository, install it as a command that runs the code
+in the clone, so your changes take effect straight away:
+
+```bash
+uv tool install --editable .
+```
+
 ## Usage
 
 ```bash
@@ -47,7 +62,7 @@ variax send -s 'E B E G# B E'               # any tuning, low E first, as notes.
 variax send -s '-1 -1 -1 -1 -1 -1'          # ...or semitones from standard (fractions allowed)
 variax send --tuning none                   # no pitch shift: strings sound as physically tuned
 variax send --twelve-string on              # 12-string sound; "off" to stop
-variax send --pickups magnetic              # magnetic pickups; "modeling" to switch back
+variax send --modeling off                  # the magnetic pickups; "on" to switch modeling back on
 variax send -n 'semi 1' --dry-run           # show the MIDI messages without sending them
 ```
 
@@ -57,10 +72,14 @@ current model's own tuning: the guitar only plays it with the tuning knob on
 the knob in any position and stays through model changes, until you turn the
 knob; it only takes whole semitones.
 
-`send` always sends in the same order (pickups, model, volume, tone, tuning,
+On/off options take `on`/`off`, `yes`/`no` or `true`/`false`. `--modelling`
+works too.
+
+`send` always sends in the same order (modeling, model, volume, tone, tuning,
 12-string), so tone and tuning follow the model change in one command. They
 have to: a model change reloads the stored model, with its own tone and
-tuning. Nothing is ever saved to the guitar, so your presets stay untouched.
+tuning (only a `--keep` tuning stays). Nothing is ever saved to the guitar, so
+your presets stay untouched.
 
 `--strings` takes six notes or numbers, low E string first, separated by
 spaces or commas: `'D A D G A D'`, `'Eb Ab Db Gb Bb Eb'` (or `♭`/`♯`),
@@ -69,13 +88,31 @@ string, at most a tritone up or down, so `B` on the low string is a baritone
 B; add the octave for anything further, e.g. `'E1 A1 D2 G2 B2 E3'` for an
 octave down (standard is E2 A2 D3 G3 B3 E4).
 
-Tuning names, the factory tunings of all JTV models: `standard`, `drop d`,
-`half down` (`1/2 down`), `drop db`, `one down` (`1 down`), `dadgad`,
-`open d`, `blues` (`blues g`), `reso` (`reso g`), `open a`, `baritone`,
-`drop c`, `m3 down` (minor third), `drop b`, `M3 down` (major third) and
-`drop bb`. Case doesn't matter, except for `m3`/`M3`; `minor 3rd down` and
-`major 3rd down` work too. Other names are looked up among the tunings stored
-on your guitar's tuning knob.
+`--tuning` knows the factory tunings of all JTV models by name:
+
+| Name | Tuning, low to high string | Also recognized |
+|---|---|---|
+| `standard` | E A D G B E |  |
+| `drop d` | D A D G B E |  |
+| `half down` | Eb Ab Db Gb Bb Eb | `1/2 down` |
+| `drop Db` | Db Ab Db Gb Bb Eb |  |
+| `one down` | D G C F A D | `1 down` |
+| `dadgad` | D A D G A D |  |
+| `open d` | D A D F# A D |  |
+| `blues` | D G D G B D | `blues g` |
+| `reso` | G B D G B D | `reso g` |
+| `open a` | E A C# E A E |  |
+| `baritone` | B E A D F# B |  |
+| `drop c` | C G C F A D |  |
+| `m3 down` | Db Gb B E Ab Db | `minor 3rd down`, `minor third down`, `min3 down` |
+| `drop b` | B Gb B E Ab Db |  |
+| `M3 down` | C F Bb Eb G C | `major 3rd down`, `major third down`, `maj3 down` |
+| `drop Bb` | Bb F Bb Eb G C |  |
+
+Case, spaces and hyphens don't matter (`Drop-D`, `dropd`), except that `m3`
+(minor third) and `M3` (major third) are told apart by the case of the `m`.
+Other names are looked up among the tunings stored on your guitar's tuning
+knob, so your own custom tunings work by name too.
 
 Other commands:
 
@@ -86,16 +123,17 @@ variax tunings     # the tunings on the tuning knob, and the current model's tun
 variax tunings --save   # also save the knob's tunings to tunings.json
 variax midi        # a virtual MIDI port for MainStage and other apps (see below)
 variax models      # list all program numbers and model names
-variax dump        # read and decode the current model's settings
+variax dump        # the current model's settings, including its tuning and 12-string state
 variax read 0x41C 6   # read words of the current model (for exploring; see docs/PROTOCOL.md)
 variax --help      # all commands; variax send --help for all send options
 ```
 
 `variax tunings --save` writes the tunings stored on the guitar's knob to
 `tunings.json` in the current directory, with the names and strings as the
-guitar reports them (which may differ from the factory tunings). `variax monitor` uses this file,
-when it is in the current directory, to name the tuning knob's positions;
-without it, it shows them as numbers.
+guitar reports them (which may differ from the factory tunings). `variax
+monitor` and `variax midi` use this file, when it is in the current
+directory, for the tuning knob's names and tunings; without it, `monitor`
+shows the knob's positions as numbers.
 
 The file looks like this:
 
@@ -115,11 +153,48 @@ can send to, and translates what they send into changes on the guitar. The
 guitar's own knob changes come back out of the same port. It runs until you
 press Ctrl-C.
 
-```bash
-variax tunings --save         # once: save your tuning knob's tunings to tunings.json
-variax midi --write-config    # once: create variax.toml with every setting and its default
-variax midi                   # run the bridge (in the directory with both files)
-```
+### Your settings file
+
+The bridge reads its settings from `variax.toml` and your tuning knob's
+tunings from `tunings.json`, both in the directory you start it from. To set
+up your own:
+
+1. Make a folder for your setup and go there:
+
+   ```bash
+   mkdir -p ~/variax && cd ~/variax
+   ```
+
+2. Create `variax.toml`, with every setting, its default and what it does:
+
+   ```bash
+   variax midi --write-config
+   ```
+
+3. Edit `variax.toml` to suit your setup. Every setting is optional: you can
+   delete the ones you don't change. The bridge checks the file when it starts
+   and names any mistake.
+
+4. Save your guitar's tuning knob tunings to `tunings.json` (guitar connected
+   and switched on):
+
+   ```bash
+   variax tunings --save
+   ```
+
+5. Start the bridge from that folder:
+
+   ```bash
+   cd ~/variax && variax midi
+   ```
+
+Without a `variax.toml` the bridge uses the defaults, and without a
+`tunings.json` it reads the knob's tunings from the guitar when it starts. To
+browse all settings without installing anything, see
+[src/variax/default.toml](src/variax/default.toml), the file `--write-config`
+writes.
+
+### Sending to the bridge
 
 In MainStage (or any app), choose **Variax** as a MIDI output and have your
 patches send these on channel 1 (the defaults; all of it can be changed in
@@ -131,19 +206,22 @@ patches send these on channel 1 (the defaults; all of it can be changed in
 | CC 7 / CC 79 | volume / tone, 0–127 |
 | CC 84 | tuning: 0 = none, 1–11 = the tuning knob's tunings, 12+ = your own `[tunings]` |
 | CC 85 | 12-string: 0–63 off, 64–127 on |
-| CC 86 | pickups: 0–63 magnetic, 64–127 modeling |
+| CC 86 | modeling: 0–63 off (the magnetic pickups), 64–127 on |
 | CC 20–25 | each string's tuning, low E first: 64 = standard, 52–76 = −12 to +12 semitones |
 | CC 26–31 | each string's fine tuning in cents, low E first: 64 = 0 |
-| Line 6 SysEx | passed to the guitar unchanged |
+| Line 6 SysEx | passed to the guitar unchanged (other SysEx, such as the probes Logic Pro sends to every new port, is ignored) |
 
 Volume, tone and tuning use the same CC numbers the guitar uses to report its
 own knobs, so a MainStage control on CC 7 both sets the guitar's volume and
-follows its volume knob.
+follows its volume knob. MIDI monitors show CC 84 as "Portamento Control", its
+name in the MIDI standard; the guitar simply uses that number for its tuning
+knob. If an instrument receives this port and reacts to it, set another
+`tuning` number in `variax.toml`.
 
 With `program_change = "patches"` in `variax.toml`, a Program Change applies a
-whole `[patch.N]` instead: model, volume, tone, tuning, 12-string and pickups
+whole `[patch.N]` instead: model, volume, tone, tuning, 12-string and modeling
 in one go, for controllers that can only send one Program Change per patch.
-`variax.toml` documents every setting.
+`variax.toml` documents every setting, including patches.
 
 Tunings work as with `variax send`: by default (`tuning_method = "model"`) the
 tuning knob has to be on MODEL; with `tuning_method = "keep"` it works with
@@ -180,9 +258,9 @@ uv run pytest
 Reverse engineered by Peter Hulst, by monitoring the guitar and capturing the
 USB traffic of Line 6 Workbench HD. With thanks to:
 
-- Joe Bear, for the on-the-fly tuning SysEx, and the authors of the community
-  "Variax MIDI reference" spreadsheet, for the magnetic/modeling switch and the
-  factory program numbers.
+- Joe Bear, for the tuning SysEx behind `--keep`, and the authors of the
+  community "Variax MIDI reference" spreadsheet, for the magnetic/modeling
+  switch and the factory program numbers.
 - Markus Grabner and the Linux kernel Line 6 driver
   ([`sound/usb/line6/variax.c`](https://github.com/torvalds/linux/blob/master/sound/usb/line6/variax.c),
   and the older [staging driver](https://github.com/torvalds/linux/tree/v2.6.32/drivers/staging/line6)),

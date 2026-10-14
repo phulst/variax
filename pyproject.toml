@@ -26,6 +26,11 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: MIDI",
 ]
 
+[project.urls]
+Homepage = "https://github.com/phulst/variax"
+Repository = "https://github.com/phulst/variax"
+Issues = "https://github.com/phulst/variax/issues"
+
 [project.scripts]
 variax = "variax.cli:main"
 

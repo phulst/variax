@@ -36,7 +36,7 @@ class Bridge:
 
         cc = config["cc"]
         self.cc_actions = {}
-        for name in ("volume", "tone", "tuning", "twelve_string", "pickups"):
+        for name in ("volume", "tone", "tuning", "twelve_string", "modeling"):
             if cc[name] is not False:
                 self.cc_actions[cc[name]] = (name, None)
         for name in ("string_semitones", "string_cents"):
@@ -120,7 +120,7 @@ class Bridge:
             self.tuning_value(value)
         elif name == "twelve_string":
             self._send_steps([("twelve-string", value >= 64)])
-        elif name == "pickups":
+        elif name == "modeling":
             self._send(protocol.MODELING_MESSAGE if value >= 64 else protocol.MAGNETIC_MESSAGE)
         elif name == "string_semitones":
             self.semitones[string] = float(max(-12, min(12, value - 64)))
@@ -156,8 +156,8 @@ class Bridge:
         self._send_tuning()
 
     def apply_patch(self, patch):
-        if "pickups" in patch:
-            self._send(protocol.MODELING_MESSAGE if patch["pickups"] == "modeling" else protocol.MAGNETIC_MESSAGE)
+        if "modeling" in patch:
+            self._send(protocol.MODELING_MESSAGE if patch["modeling"] else protocol.MAGNETIC_MESSAGE)
         if "model" in patch or "program" in patch:
             self._select_model(jtv.parse_model_name(patch["model"]) if "model" in patch else patch["program"])
         for name, cc in (("volume", protocol.VOLUME_CC), ("tone", protocol.TONE_CC)):

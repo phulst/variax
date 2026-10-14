@@ -26,16 +26,19 @@ def no_tuning_messages(keep=False):
 
 
 def plan_send(program=None, name=None, volume=None, tone=None, tuning=None, strings=None, keep=False,
-              twelve_string=None, pickups=None, raw=()):
-    """The messages to send, in order: pickups, model, volume, tone, tuning, 12-string, raw.
+              twelve_string=None, modeling=None, raw=()):
+    """The messages to send, in order: modeling, model, volume, tone, tuning, 12-string, raw.
+
+    twelve_string and modeling are True (on), False (off) or None (leave as it is); modeling off
+    means the magnetic pickups.
 
     Steps that need to read from the guitar first appear as ("tuning", name)
     for a tuning to look up on the knob and ("twelve-string", on) for the
     12-string switch, which changes only its own bits in the model's flags word.
     """
     messages = []
-    if pickups:
-        messages.append(protocol.MAGNETIC_MESSAGE if pickups == "magnetic" else protocol.MODELING_MESSAGE)
+    if modeling is not None:
+        messages.append(protocol.MODELING_MESSAGE if modeling else protocol.MAGNETIC_MESSAGE)
     if name is not None:
         program = jtv.parse_model_name(name)
     if program is not None:
@@ -52,8 +55,8 @@ def plan_send(program=None, name=None, volume=None, tone=None, tuning=None, stri
         else:
             known = jtv.find_factory_tuning(tuning)
             messages += tuning_messages(known[1], keep) if known else [("tuning", tuning)]
-    if twelve_string:
-        messages.append(("twelve-string", twelve_string == "on"))
+    if twelve_string is not None:
+        messages.append(("twelve-string", bool(twelve_string)))
     for hex_message in raw:
         try:
             messages.append(bytes.fromhex(hex_message))

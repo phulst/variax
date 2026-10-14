@@ -343,7 +343,7 @@ def _describe_sysex(msg):
         values = " ".join("0x%06X" % (w & 0xFFFFFF) for w in words[:6]) + (" ..." if len(words) > 6 else "")
         return "write %d words at 0x%03X%s: %s" % (len(words), address, " (%s)" % name if name else "", values)
     if msg in (MAGNETIC_MESSAGE, MODELING_MESSAGE):
-        return "magnetic pickups" if msg == MAGNETIC_MESSAGE else "modeling"
+        return "modeling off (magnetic pickups)" if msg == MAGNETIC_MESSAGE else "modeling on"
     fly = parse_fly_tuning(msg)
     if fly:
         return "on-the-fly tuning, low E first: %s" % _format_offsets(fly)

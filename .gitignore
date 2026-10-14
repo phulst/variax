@@ -16,3 +16,6 @@ tunings.json
 
 # Your own `variax midi` settings (create with `variax midi --write-config`)
 variax.toml
+
+# Third-party reference material, kept locally only
+references/
