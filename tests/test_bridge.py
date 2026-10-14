@@ -164,6 +164,22 @@ def test_twelve_string_and_modeling():
     assert link.sent == [protocol.MAGNETIC_MESSAGE]
 
 
+def test_program_cc():
+    bridge, link, _, _ = make({"cc": {"program": 102}})
+    bridge.handle_app([cc(102, 44)])                          # models mode: CC value = model
+    assert link.sent == [protocol.program_change(44)]
+    bridge, link, _, _ = make(dict(PATCHES, cc={"program": 102}))
+    bridge.handle_app([cc(102, 1), cc(102, 1), cc(102, 1)])   # patches mode; repeats collapse to one
+    assert link.sent == [protocol.program_change(15), protocol.control_change(79, 90),
+                         strings(-2, 0, 0, 0, -2, -2), ON]
+
+
+def test_program_cc_is_off_by_default():
+    bridge, link, _, _ = make()
+    bridge.handle_app([cc(102, 44)])
+    assert link.sent == []
+
+
 def test_disabled_ccs_are_ignored():
     bridge, link, _, _ = make({"cc": {"tone": False, "string_cents": False}})
     bridge.handle_app([cc(79, 64), cc(26, 50)])

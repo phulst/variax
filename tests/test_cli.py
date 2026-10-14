@@ -127,3 +127,46 @@ def test_on_off_values():
         assert result.exit_code == 0 and "modeling off (magnetic pickups)" in result.output
         assert "12-string off" in result.output
     assert "is not on or off" in run("send", "--modeling", "magnetic").output
+
+
+PATCH_CONFIG = '''[behavior]
+tuning_method = "model"
+
+[patch.1]
+model = "Acoustic 1"
+strings = "D A E A E E"
+
+[patch.2]
+program = 44
+tone = 90
+modeling = false
+'''
+
+
+def test_send_patch(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "variax.toml").write_text(PATCH_CONFIG)
+    result = run("send", "--patch", "1", "--dry-run")
+    assert result.exit_code == 0
+    assert "Acoustic 1" in result.output and "-2 +0 +2 +2 +5 +0 (D A E A E E)" in result.output
+
+    result = run("send", "--patch", "1", "--tone", "40", "-t", "dadgad", "--dry-run")   # options override the patch
+    assert "CC79 = 40" in result.output and "(D A D G A D)" in result.output and "D A E A E E" not in result.output
+
+    result = run("send", "--patch", "2", "--dry-run")
+    assert result.output.splitlines()[0].endswith("modeling off (magnetic pickups)")
+    assert "CC79 = 90" in result.output
+
+    result = run("send", "--patch", "1", "--keep", "--dry-run")
+    assert "on-the-fly tuning" in result.output
+
+    result = run("send", "--patch", "9", "--dry-run")
+    assert result.exit_code != 0 and "no [patch.9]" in result.output and "1, 2" in result.output
+
+
+def test_send_patch_needs_a_config(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = run("send", "--patch", "1", "--dry-run")
+    assert result.exit_code != 0 and "variax.toml not found" in result.output
+    (tmp_path / "other.toml").write_text(PATCH_CONFIG)
+    assert run("send", "--patch", "1", "-c", "other.toml", "--dry-run").exit_code == 0

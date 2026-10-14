@@ -1,6 +1,6 @@
 [project]
 name = "variax"
-version = "0.2.0"
+version = "0.2.1"
 description = "Unofficial command line control for Line 6 James Tyler Variax guitars through the Variax USB Interface"
 readme = "README.md"
 license = "MIT"

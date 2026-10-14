@@ -27,6 +27,10 @@ tuning = 84                   # 0 = none (strings as physically tuned), 1-11 = t
                               # knob's tunings, 12 and up = [tunings] below
 twelve_string = 85            # 0-63 off, 64-127 on
 modeling = 86                 # 0-63 off (the magnetic pickups), 64-127 on
+program = false               # a CC that works like a Program Change: its value selects
+                              # patch N or model N (see program_change), for devices that
+                              # can send a CC but no Program Change when a patch loads.
+                              # Off by default; e.g. 102 (CC 102-119 are undefined in MIDI)
 
 # Per-string tuning: each string's offset from standard tuning, as a coarse
 # value in semitones plus a fine value in cents. Low E string first.

@@ -26,6 +26,7 @@ DEFAULTS = {
         "tuning": 84,
         "twelve_string": 85,
         "modeling": 86,
+        "program": False,
         "string_semitones": [20, 21, 22, 23, 24, 25],
         "string_cents": [26, 27, 28, 29, 30, 31],
     },

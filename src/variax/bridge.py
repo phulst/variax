@@ -36,7 +36,7 @@ class Bridge:
 
         cc = config["cc"]
         self.cc_actions = {}
-        for name in ("volume", "tone", "tuning", "twelve_string", "modeling"):
+        for name in ("volume", "tone", "tuning", "twelve_string", "modeling", "program"):
             if cc[name] is not False:
                 self.cc_actions[cc[name]] = (name, None)
         for name in ("string_semitones", "string_cents"):
@@ -120,6 +120,9 @@ class Bridge:
             self.tuning_value(value)
         elif name == "twelve_string":
             self._send_steps([("twelve-string", value >= 64)])
+        elif name == "program":
+            # for devices that can send a CC but no Program Change when a patch loads
+            self.program_change(value)
         elif name == "modeling":
             self._send(protocol.MODELING_MESSAGE if value >= 64 else protocol.MAGNETIC_MESSAGE)
         elif name == "string_semitones":

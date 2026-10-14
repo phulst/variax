@@ -65,6 +65,21 @@ def plan_send(program=None, name=None, volume=None, tone=None, tuning=None, stri
     return messages
 
 
+def patch_arguments(patch):
+    """plan_send arguments for a [patch.N] from variax.toml (already validated)."""
+    arguments = {}
+    if "model" in patch:
+        arguments["name"] = patch["model"]
+    if "program" in patch:
+        arguments["program"] = patch["program"]
+    for key in ("volume", "tone", "tuning", "twelve_string", "modeling"):
+        if key in patch:
+            arguments[key] = patch[key]
+    if "strings" in patch:
+        arguments["strings"] = jtv.parse_tuning_text(patch["strings"])
+    return arguments
+
+
 def find_tuning(tunings, name):
     """Offsets of the tuning called `name` among {slot: (name, offsets)}, matched loosely."""
     wanted = "".join(c for c in name.lower() if c.isalnum())

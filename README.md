@@ -102,6 +102,7 @@ variax send -s '-1 -1 -1 -1 -1 -1'          # ...or semitones from standard (fra
 variax send --tuning none                   # no pitch shift: strings sound as physically tuned
 variax send --twelve-string on              # 12-string sound; "off" to stop
 variax send --modeling off                  # the magnetic pickups; "on" to switch modeling back on
+variax send --patch 1                       # apply [patch.1] from variax.toml, as the MIDI bridge would
 variax send -n 'semi 1' --dry-run           # show the MIDI messages without sending them
 ```
 
@@ -246,6 +247,7 @@ patches send these on channel 1 (the defaults; all of it can be changed in
 | CC 84 | tuning: 0 = none, 1–11 = the tuning knob's tunings, 12+ = your own `[tunings]` |
 | CC 85 | 12-string: 0–63 off, 64–127 on |
 | CC 86 | modeling: 0–63 off (the magnetic pickups), 64–127 on |
+| `program` CC (off by default) | works like a Program Change with the CC's value, for devices that can't send Program Changes |
 | CC 20–25 | each string's tuning, low E first: 64 = standard, 52–76 = −12 to +12 semitones |
 | CC 26–31 | each string's fine tuning in cents, low E first: 64 = 0 |
 | Line 6 SysEx | passed to the guitar unchanged (other SysEx, such as the probes Logic Pro sends to every new port, is ignored) |
@@ -260,7 +262,15 @@ knob. If an instrument receives this port and reacts to it, set another
 With `program_change = "patches"` in `variax.toml`, a Program Change applies a
 whole `[patch.N]` instead: model, volume, tone, tuning, 12-string and modeling
 in one go, for controllers that can only send one Program Change per patch.
-`variax.toml` documents every setting, including patches.
+Some devices, like the Hotone Ampero II, can send CCs but no Program Change
+when you select a patch. For those, set `program = 102` (or another unused CC)
+in the `[cc]` section, and program each device patch to send that CC with the
+number of the `[patch.N]` (or model) it should select.
+
+`variax.toml` documents every setting, including patches. To try a patch
+without a MIDI device, use `variax send --patch N`: it applies `[patch.N]`
+exactly as the bridge would, and other `send` options override parts of it
+(`variax send --patch 1 --tone 40`).
 
 Tunings work as with `variax send`: by default (`tuning_method = "model"`) the
 tuning knob has to be on MODEL; with `tuning_method = "keep"` it works with

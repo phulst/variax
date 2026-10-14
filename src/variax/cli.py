@@ -11,6 +11,7 @@ import usb.core
 
 from . import __version__, jtv, protocol
 from . import config as configuration
+from . import actions
 from .actions import plan_send, resolve
 from .interface import VariaxError, VariaxLink
 from .modeldata import float24, format_diff, format_model, read_model
@@ -92,11 +93,15 @@ def main():
 @click.option("--modeling", "--modelling", "modeling", type=ON_OFF,
               help="Modeling on, or off for the magnetic pickups (like pushing the model knob).")
 @click.option("--raw", multiple=True, metavar="HEX", help="A raw MIDI message as hex, e.g. 'C0 2C'. Repeatable; sent last.")
+@click.option("--patch", type=click.IntRange(0, 127),
+              help="Apply [patch.N] from variax.toml, as variax midi does for Program Change N; other options override it.")
+@click.option("-c", "--config", "config_path", type=click.Path(dir_okay=False),
+              help="Settings file for --patch (default: variax.toml in the current directory).")
 @click.option("--wait", type=float, default=0.0, show_default=True, help="Seconds to keep listening at the end.")
 @click.option("--dry-run", is_flag=True, help="Print the messages without sending them.")
 @click.option("-v", "--verbose", is_flag=True, help="Print all MIDI traffic.")
-def send(program, name, volume, tone, tuning, strings, keep, twelve_string, modeling, raw, wait, dry_run,
-         verbose):
+def send(program, name, volume, tone, tuning, strings, keep, twelve_string, modeling, raw, patch, config_path, wait,
+         dry_run, verbose):
     """Select a model and set volume, tone, tuning and 12-string.
 
     Messages go out in a fixed order (modeling, model, volume, tone, tuning,
@@ -116,6 +121,8 @@ def send(program, name, volume, tone, tuning, strings, keep, twelve_string, mode
       variax send -n 'lester 5' --tuning dadgad
       variax send -s 'D A D G A D'
       variax send -s '-2 0 0 0 0 0'
+      variax send --patch 1
+      variax send --patch 1 --tone 40
 
     A note without an octave means the nearest pitch to the standard string
     (at most a tritone away); add the octave (D2) for anything further.
@@ -124,8 +131,29 @@ def send(program, name, volume, tone, tuning, strings, keep, twelve_string, mode
         raise click.UsageError("use either --program or --name, not both")
     if tuning is not None and strings is not None:
         raise click.UsageError("use either --tuning or --strings, not both")
+    arguments = {}
+    if patch is not None:
+        try:
+            config = configuration.load(config_path or configuration.CONFIG_FILE, required=True)
+        except configuration.ConfigError as e:
+            raise click.ClickException(str(e))
+        if patch not in config["patch"]:
+            defined = ", ".join(str(n) for n in sorted(config["patch"])) or "none"
+            raise click.ClickException("%s has no [patch.%d] (patches defined: %s)"
+                                       % (config_path or configuration.CONFIG_FILE, patch, defined))
+        arguments = actions.patch_arguments(config["patch"][patch])
+        keep = keep or config["behavior"]["tuning_method"] == "keep"
+        # options given on the command line override the patch
+        if program is not None or name is not None:
+            arguments.pop("program", None), arguments.pop("name", None)
+        if tuning is not None or strings is not None:
+            arguments.pop("tuning", None), arguments.pop("strings", None)
+    for key, value in (("program", program), ("name", name), ("volume", volume), ("tone", tone), ("tuning", tuning),
+                       ("strings", strings), ("twelve_string", twelve_string), ("modeling", modeling)):
+        if value is not None:
+            arguments[key] = value
     try:
-        messages = plan_send(program, name, volume, tone, tuning, strings, keep, twelve_string, modeling, raw)
+        messages = plan_send(keep=keep, raw=raw, **arguments)
     except ValueError as e:
         raise click.UsageError(str(e))
     if not messages:
