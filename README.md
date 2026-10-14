@@ -8,8 +8,9 @@ switch on a 12-string sound, and watch what the guitar's knobs send.
 `variax midi` lets any MIDI device or app (a guitar effects processor, a MIDI
 foot controller, MainStage or a DAW) change the guitar's model and tuning,
 for example on every patch change. Until now that needed a Line 6 Helix, POD
-HD or another device with a VDI jack; now a Mac running `variax` and the USB
-interface the guitar came with are enough. See
+HD or another device with a VDI jack; now a Mac or Linux computer (even a
+Raspberry Pi) running `variax` and the USB interface the guitar came with are
+enough. See
 [Control from MainStage, a DAW or a MIDI controller](#control-from-mainstage-a-daw-or-a-midi-controller).
 
 Line 6 has retired the Variax line, including the USB interface and its
@@ -18,8 +19,9 @@ useful. It is not affiliated with or endorsed by Line 6 or Yamaha.
 
 ## Requirements
 
-- **macOS.** Windows and Linux are not supported yet; see
-  [Contributing](#contributing).
+- **macOS or Linux** (tested on a Raspberry Pi with Raspberry Pi OS 13).
+  Linux needs a few extra steps; see [Linux and Raspberry Pi](#linux-and-raspberry-pi).
+  Windows is not supported yet; see [Contributing](#contributing).
 - Python 3.11 or newer.
 - A Line 6 **Variax USB Interface**, connected to the guitar's VDI jack.
 - The guitar switched on: with the USB interface the guitar runs on its
@@ -45,6 +47,43 @@ in the clone, so your changes take effect straight away:
 ```bash
 uv tool install --editable .
 ```
+
+### Linux and Raspberry Pi
+
+1. Install the packages needed to build the MIDI library, and libusb:
+
+   ```bash
+   sudo apt install build-essential python3-dev pkg-config libasound2-dev libjack-jackd2-dev libusb-1.0-0
+   ```
+
+2. Install `variax`. Recent Debian-based systems, including Raspberry Pi OS,
+   don't allow `pip install` outside a virtual environment, so use pipx
+   (`sudo apt install pipx`, then `pipx install variax`) or a virtual
+   environment:
+
+   ```bash
+   python3 -m venv ~/variax-venv
+   ~/variax-venv/bin/pip install variax
+   ```
+
+   The command is then `~/variax-venv/bin/variax`, or just `variax` after
+   `source ~/variax-venv/bin/activate`.
+
+3. Let your user access the interface without `sudo`, with a udev rule:
+
+   ```bash
+   echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0e41", ATTRS{idProduct}=="534d", MODE="0660", GROUP="plugdev"' | sudo tee /etc/udev/rules.d/50-variax.rules
+   sudo udevadm control --reload-rules && sudo udevadm trigger
+   ```
+
+   Your user has to be in the `plugdev` group (check with `groups`; add it
+   with `sudo usermod -aG plugdev $USER` and log in again). Then unplug and
+   replug the interface.
+
+Some Linux kernels include a driver for the Variax USB Interface
+(`snd-usb-variax`); `variax` detaches it automatically while it uses the
+interface. On Linux, `variax midi`'s port appears in the ALSA MIDI system as
+"Variax" (`aconnect -l` lists it).
 
 ## Usage
 
@@ -237,14 +276,10 @@ and how it was found, are in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 ## Contributing
 
-Help with **Windows and Linux support** is very welcome, as are reports from
-other Variax models. What is known so far:
-
-- Linux: the kernel's own Line 6 driver (`snd-usb-variax`) claims the
-  interface, so `variax` would have to detach it, and users need a udev rule
-  for access without root.
-- Windows: libusb needs the WinUSB driver on the interface (e.g. installed with
-  Zadig), which replaces Line 6's driver while it is installed.
+Help with **Windows support** is very welcome, as are reports from other
+Variax models and other Linux systems. What is known about Windows so far:
+libusb needs the WinUSB driver on the interface (e.g. installed with Zadig),
+which replaces Line 6's driver while it is installed.
 
 The tests run without a guitar:
 

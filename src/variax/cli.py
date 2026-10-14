@@ -391,9 +391,10 @@ def midi(config_path, write_config, verbose):
                 click.echo("tuning knob tunings read from the guitar ('variax tunings --save' saves them)")
             else:
                 click.echo("using tuning names and values from %s" % TUNINGS_FILE)
-            midi_in = rtmidi.MidiIn()
-            midi_out = rtmidi.MidiOut() if config["midi"]["forward_from_guitar"] else None
             port = config["midi"]["port"]
+            # the client name shows on Linux (aconnect -l); macOS shows only the port name
+            midi_in = rtmidi.MidiIn(name=port)
+            midi_out = rtmidi.MidiOut(name=port) if config["midi"]["forward_from_guitar"] else None
             midi_in.open_virtual_port(port)
             if midi_out:
                 midi_out.open_virtual_port(port)

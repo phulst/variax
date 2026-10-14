@@ -31,6 +31,13 @@ def open_interface():
     dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=libusb_package.get_libusb1_backend())
     if dev is None:
         raise VariaxError("Variax USB Interface not found. Is it plugged in?")
+    # Some Linux kernels include a Variax driver (snd-usb-variax) that claims the
+    # interface; detach it for as long as we use it. Not applicable on macOS.
+    try:
+        if dev.is_kernel_driver_active(0):
+            dev.detach_kernel_driver(0)
+    except (NotImplementedError, usb.core.USBError):
+        pass
     # On macOS, setting the configuration again on an already configured device
     # resets it and libusb loses the handle, so only set it when needed.
     try:

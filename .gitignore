@@ -19,3 +19,6 @@ variax.toml
 
 # Third-party reference material, kept locally only
 references/
+
+# Local secrets, such as a PyPI token
+.env
